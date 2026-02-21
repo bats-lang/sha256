@@ -250,17 +250,17 @@ implement hash {l}{n}{lo} (data, data_len, out) = let
 
   val w = $A.alloc<int>(64)
 
-  fun proc_blocks {ld:agz}{nd:pos}{lw:agz}{lh:agz}
+  fun proc_blocks {ld:agz}{nd:pos}{lw:agz}{lh:agz}{rem:nat} .<rem>.
     (data: !$A.arr(byte, ld, nd), dcap: int nd,
      w: !$A.arr(int, lw, 64), h: !$A.arr(int, lh, 8),
-     boff: int, data_len: int): int =
-    if $AR.gt_int_int(boff + 64, data_len) then boff
+     boff: int, data_len: int, rem: int rem): int =
+    if rem <= 0 then boff
+    else if $AR.gt_int_int(boff + 64, data_len) then boff
     else let
       val () = _sha256_compress(data, dcap, boff, w, h)
-    in proc_blocks(data, dcap, w, h, boff + 64, data_len) end
+    in proc_blocks(data, dcap, w, h, boff + 64, data_len, rem - 1) end
 
-  val total_done = proc_blocks(data, data_len, w, h, 0, data_len)
-
+  val total_done = proc_blocks(data, data_len, w, h, 0, data_len, $AR.checked_nat(data_len))
   val tail_len = data_len - total_done
   val pbuf = $A.alloc<byte>(128)
 
