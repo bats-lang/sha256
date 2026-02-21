@@ -1,4 +1,3 @@
 [package]
 name = "sha256"
 kind = "lib"
-unsafe = true
