@@ -210,12 +210,23 @@ fn _sha256_compress {ld:agz}{nd:pos}{bo:nat | bo + 64 <= nd}{lw:agz}{lh:agz}
 in rounds(w, h, 0, a0, b0, c0, d0, e0, f0, g0_, h0) end
 
 (* ============================================================
-   Hex output
+   Safe g0-to-g1 nibble conversion via linear scan
    ============================================================ *)
 
-fn _hex_digit(v: int): int =
-  if $AR.lt_int_int(v, 10) then v + 48
-  else v + 87
+fun _find_nibble {k:nat | k <= 16} .<16-k>.
+  (target: int, k: int(k)): [r:nat | r < 16] int(r) =
+  if $AR.gte_g1(k, 16) then 0
+  else if $AR.eq_int_int(target, k) then k
+  else _find_nibble(target, $AR.add_g1(k, 1))
+
+fn _g1_byte(x: int): [v:nat | v < 256] int(v) = let
+  val hi = _find_nibble($AR.band_int_int(_ushr(x, 4), 15), 0)
+  val lo = _find_nibble($AR.band_int_int(x, 15), 0)
+in $AR.add_g1($AR.mul_g1(hi, 16), lo) end
+
+(* ============================================================
+   Hex output
+   ============================================================ *)
 
 fn _write_hex_word {lo:agz}{p:nat | p + 8 <= 64}
   (out: !$A.arr(byte, lo, 64), pos: int(p), word: int): void = let
@@ -224,10 +235,12 @@ fn _write_hex_word {lo:agz}{p:nat | p + 8 <= 64}
     if $AR.gte_g1(i, 8) then ()
     else let
       val shift = $AR.mul_g1($AR.sub_g1(7, i), 4)
-      val nibble = $AR.band_int_int(_ushr(w, shift), 15)
+      val nib = _find_nibble($AR.band_int_int(_ushr(w, shift), 15), 0)
       val idx = $AR.add_g1(base, i)
-      val () = $A.set<byte>(out, idx,
-        $A.int2byte($AR.checked_byte(_hex_digit(nibble))))
+      val () = if $AR.lt_g1(nib, 10) then
+        $A.set<byte>(out, idx, $A.int2byte($AR.add_g1(nib, 48)))
+      else
+        $A.set<byte>(out, idx, $A.int2byte($AR.add_g1(nib, 87)))
     in loop(out, base, w, $AR.add_g1(i, 1)) end
 in loop(out, pos, word, 0) end
 
@@ -265,8 +278,7 @@ implement hash {l}{n}{lo} (data, data_len, out) = let
     (pb: !$A.arr(byte, lp, 128), i: int(k)): void =
     if $AR.gte_g1(i, 128) then ()
     else let
-      val () = $A.set<byte>(pb, i,
-        $A.int2byte($AR.checked_byte(0)))
+      val () = $A.set<byte>(pb, i, $A.int2byte(0))
     in zero_pb(pb, $AR.add_g1(i, 1)) end
   val () = zero_pb(pbuf, 0)
 
@@ -276,15 +288,12 @@ implement hash {l}{n}{lo} (data, data_len, out) = let
     if $AR.gte_g1(i, n) then ()
     else let
       val doff = $AR.add_g1(dbase, i)
-      val b = byte2int0($A.get<byte>(data, doff))
-      val () = $A.set<byte>(pb, i,
-        $A.int2byte($AR.checked_byte($AR.band_int_int(b, 255))))
+      val () = $A.set<byte>(pb, i, $A.get<byte>(data, doff))
     in copy_tail(data, pb, $AR.add_g1(i, 1), n, dbase, dcap) end
 
   val () = copy_tail(data, pbuf, 0, tail_len, total_done, data_len)
 
-  val () = $A.set<byte>(pbuf, tail_len,
-    $A.int2byte($AR.checked_byte(128)))
+  val () = $A.set<byte>(pbuf, tail_len, $A.int2byte(128))
 
   val need_two = $AR.gt_int_int(tail_len + 9, 64)
   val high_bits = _ushr(data_len, 29)
@@ -292,14 +301,14 @@ implement hash {l}{n}{lo} (data, data_len, out) = let
 
   fn _wb_len {lp:agz}{p:nat | p + 8 <= 128}
     (pb: !$A.arr(byte, lp, 128), pos: int(p), hi: int, lo: int): void = let
-    val () = $A.set<byte>(pb, pos, $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 24), 255))))
-    val () = $A.set<byte>(pb, $AR.add_g1(pos, 1), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 16), 255))))
-    val () = $A.set<byte>(pb, $AR.add_g1(pos, 2), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 8), 255))))
-    val () = $A.set<byte>(pb, $AR.add_g1(pos, 3), $A.int2byte($AR.checked_byte($AR.band_int_int(hi, 255))))
-    val () = $A.set<byte>(pb, $AR.add_g1(pos, 4), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 24), 255))))
-    val () = $A.set<byte>(pb, $AR.add_g1(pos, 5), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 16), 255))))
-    val () = $A.set<byte>(pb, $AR.add_g1(pos, 6), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 8), 255))))
-    val () = $A.set<byte>(pb, $AR.add_g1(pos, 7), $A.int2byte($AR.checked_byte($AR.band_int_int(lo, 255))))
+    val () = $A.set<byte>(pb, pos, $A.int2byte(_g1_byte($AR.band_int_int(_ushr(hi, 24), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 1), $A.int2byte(_g1_byte($AR.band_int_int(_ushr(hi, 16), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 2), $A.int2byte(_g1_byte($AR.band_int_int(_ushr(hi, 8), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 3), $A.int2byte(_g1_byte($AR.band_int_int(hi, 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 4), $A.int2byte(_g1_byte($AR.band_int_int(_ushr(lo, 24), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 5), $A.int2byte(_g1_byte($AR.band_int_int(_ushr(lo, 16), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 6), $A.int2byte(_g1_byte($AR.band_int_int(_ushr(lo, 8), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 7), $A.int2byte(_g1_byte($AR.band_int_int(lo, 255))))
   in end
 
   fn _write_bit_len {lp:agz}
