@@ -219,15 +219,15 @@ fn _hex_digit(v: int): int =
 fn _write_hex_word {lo:agz}
   (out: !$A.arr(byte, lo, 64), pos: int, word: int): void = let
   fun loop {lo:agz}{k:nat | k <= 8} .<8-k>.
-    (out: !$A.arr(byte, lo, 64), p: int, w: int, i: int(k), off: int): void =
+    (out: !$A.arr(byte, lo, 64), p: int, w: int, i: int(k)): void =
     if $AR.gte_g1(i, 8) then ()
     else let
-      val shift = $AR.mul_int_int($AR.sub_int_int(7, off), 4)
+      val shift = $AR.mul_g1($AR.sub_g1(7, i), 4)
       val nibble = $AR.band_int_int(_ushr(w, shift), 15)
-      val () = $A.set<byte>(out, $AR.checked_idx(p + off, 64),
+      val () = $A.set<byte>(out, $AR.checked_idx(p + i, 64),
         $A.int2byte($AR.checked_byte(_hex_digit(nibble))))
-    in loop(out, p, w, $AR.add_g1(i, 1), off + 1) end
-in loop(out, pos, word, 0, 0) end
+    in loop(out, p, w, $AR.add_g1(i, 1)) end
+in loop(out, pos, word, 0) end
 
 (* ============================================================
    Main hash
@@ -269,18 +269,18 @@ implement hash {l}{n}{lo} (data, data_len, out) = let
     in zero_pb(pb, $AR.add_g1(i, 1)) end
   val () = zero_pb(pbuf, 0)
 
-  fun copy_tail {ld:agz}{nd:pos}{lp:agz}{rem:nat} .<rem>.
+  fun copy_tail {ld:agz}{nd:pos}{lp:agz}{k:nat}{n:nat | k <= n; n <= 128} .<n-k>.
     (data: !$A.arr(byte, ld, nd), pb: !$A.arr(byte, lp, 128),
-     doff: int, poff: int, rem: int rem, dcap: int nd): void =
-    if rem <= 0 then ()
+     i: int(k), n: int(n), doff: int, dcap: int nd): void =
+    if $AR.gte_g1(i, n) then ()
     else let
       val b = byte2int0($A.get<byte>(data, $AR.checked_idx(doff, dcap)))
-      val () = $A.set<byte>(pb, $AR.checked_idx(poff, 128),
+      val () = $A.set<byte>(pb, i,
         $A.int2byte($AR.checked_byte($AR.band_int_int(b, 255))))
-    in copy_tail(data, pb, doff + 1, poff + 1, rem - 1, dcap) end
+    in copy_tail(data, pb, $AR.add_g1(i, 1), n, doff + 1, dcap) end
 
-  val tl = $AR.checked_nat(if $AR.gt_int_int(tail_len, 64) then 64 else tail_len)
-  val () = copy_tail(data, pbuf, total_done, 0, tl, data_len)
+  val tl = $AR.checked_idx(if $AR.gt_int_int(tail_len, 64) then 64 else tail_len, 129)
+  val () = copy_tail(data, pbuf, 0, tl, total_done, data_len)
 
   val () = $A.set<byte>(pbuf, $AR.checked_idx(tail_len, 128),
     $A.int2byte($AR.checked_byte(128)))
