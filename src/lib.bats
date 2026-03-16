@@ -144,23 +144,24 @@ fn _wi {l:agz}{n:pos}{off:nat | off < n}
    Block compression
    ============================================================ *)
 
-fn _sha256_compress {ld:agz}{nd:pos}{lw:agz}{lh:agz}
-  (data: !$A.arr(byte, ld, nd), data_cap: int nd, block_off: int,
+fn _sha256_compress {ld:agz}{nd:pos}{bo:nat | bo + 64 <= nd}{lw:agz}{lh:agz}
+  (data: !$A.arr(byte, ld, nd), data_cap: int nd, block_off: int(bo),
    w: !$A.arr(int, lw, 64), h: !$A.arr(int, lh, 8)): void = let
 
-  fun read_words {ld:agz}{nd:pos}{lw:agz}{k:nat | k <= 16} .<16-k>.
+  fun read_words {ld:agz}{nd:pos}{lw:agz}{bo:nat | bo + 64 <= nd}{k:nat | k <= 16} .<16-k>.
     (data: !$A.arr(byte, ld, nd), w: !$A.arr(int, lw, 64),
-     i: int(k), off: int, dcap: int nd): void =
+     i: int(k), base: int(bo), dcap: int nd): void =
     if $AR.gte_g1(i, 16) then ()
     else let
-      val b0 = byte2int0($A.get<byte>(data, $AR.checked_idx(off, dcap)))
-      val b1 = byte2int0($A.get<byte>(data, $AR.checked_idx(off + 1, dcap)))
-      val b2 = byte2int0($A.get<byte>(data, $AR.checked_idx(off + 2, dcap)))
-      val b3 = byte2int0($A.get<byte>(data, $AR.checked_idx(off + 3, dcap)))
+      val off = $AR.add_g1(base, $AR.mul_g1(i, 4))
+      val b0 = byte2int0($A.get<byte>(data, off))
+      val b1 = byte2int0($A.get<byte>(data, $AR.add_g1(off, 1)))
+      val b2 = byte2int0($A.get<byte>(data, $AR.add_g1(off, 2)))
+      val b3 = byte2int0($A.get<byte>(data, $AR.add_g1(off, 3)))
       val word = $AR.bor_int_int($AR.bor_int_int($AR.bsl_int_int(b0, 24), $AR.bsl_int_int(b1, 16)),
                              $AR.bor_int_int($AR.bsl_int_int(b2, 8), b3))
       val () = _wi(w, i, word, 64)
-    in read_words(data, w, $AR.add_g1(i, 1), off + 4, dcap) end
+    in read_words(data, w, $AR.add_g1(i, 1), base, dcap) end
 
   val () = read_words(data, w, 0, block_off, data_cap)
 
@@ -216,17 +217,18 @@ fn _hex_digit(v: int): int =
   if $AR.lt_int_int(v, 10) then v + 48
   else v + 87
 
-fn _write_hex_word {lo:agz}
-  (out: !$A.arr(byte, lo, 64), pos: int, word: int): void = let
+fn _write_hex_word {lo:agz}{p:nat | p + 8 <= 64}
+  (out: !$A.arr(byte, lo, 64), pos: int(p), word: int): void = let
   fun loop {lo:agz}{k:nat | k <= 8} .<8-k>.
-    (out: !$A.arr(byte, lo, 64), p: int, w: int, i: int(k)): void =
+    (out: !$A.arr(byte, lo, 64), base: int(p), w: int, i: int(k)): void =
     if $AR.gte_g1(i, 8) then ()
     else let
       val shift = $AR.mul_g1($AR.sub_g1(7, i), 4)
       val nibble = $AR.band_int_int(_ushr(w, shift), 15)
-      val () = $A.set<byte>(out, $AR.checked_idx(p + i, 64),
+      val idx = $AR.add_g1(base, i)
+      val () = $A.set<byte>(out, idx,
         $A.int2byte($AR.checked_byte(_hex_digit(nibble))))
-    in loop(out, p, w, $AR.add_g1(i, 1)) end
+    in loop(out, base, w, $AR.add_g1(i, 1)) end
 in loop(out, pos, word, 0) end
 
 (* ============================================================
@@ -246,18 +248,17 @@ implement hash {l}{n}{lo} (data, data_len, out) = let
 
   val w = $A.alloc<int>(64)
 
-  fun proc_blocks {ld:agz}{nd:pos}{lw:agz}{lh:agz}{rem:nat} .<rem>.
+  fun proc_blocks {ld:agz}{nd:pos}{lw:agz}{lh:agz}{bo:nat | bo <= nd} .<nd - bo>.
     (data: !$A.arr(byte, ld, nd), dcap: int nd,
      w: !$A.arr(int, lw, 64), h: !$A.arr(int, lh, 8),
-     boff: int, data_len: int, rem: int rem): int =
-    if rem <= 0 then boff
-    else if $AR.gt_int_int(boff + 64, data_len) then boff
+     boff: int(bo)): [td:nat | td <= nd; td + 64 > nd] int(td) =
+    if $AR.gt_g1($AR.add_g1(boff, 64), dcap) then boff
     else let
       val () = _sha256_compress(data, dcap, boff, w, h)
-    in proc_blocks(data, dcap, w, h, boff + 64, data_len, rem - 1) end
+    in proc_blocks(data, dcap, w, h, $AR.add_g1(boff, 64)) end
 
-  val total_done = proc_blocks(data, data_len, w, h, 0, data_len, $AR.checked_nat(data_len))
-  val tail_len = data_len - total_done
+  val total_done = proc_blocks(data, data_len, w, h, 0)
+  val tail_len = $AR.sub_g1(data_len, total_done)
   val pbuf = $A.alloc<byte>(128)
 
   fun zero_pb {lp:agz}{k:nat | k <= 128} .<128-k>.
@@ -269,59 +270,64 @@ implement hash {l}{n}{lo} (data, data_len, out) = let
     in zero_pb(pb, $AR.add_g1(i, 1)) end
   val () = zero_pb(pbuf, 0)
 
-  fun copy_tail {ld:agz}{nd:pos}{lp:agz}{k:nat}{n:nat | k <= n; n <= 128} .<n-k>.
+  fun copy_tail {ld:agz}{nd:pos}{lp:agz}{base:nat}{k:nat}{nn:nat | k <= nn; nn < 64; base + nn <= nd} .<nn-k>.
     (data: !$A.arr(byte, ld, nd), pb: !$A.arr(byte, lp, 128),
-     i: int(k), n: int(n), doff: int, dcap: int nd): void =
+     i: int(k), n: int(nn), dbase: int(base), dcap: int nd): void =
     if $AR.gte_g1(i, n) then ()
     else let
-      val b = byte2int0($A.get<byte>(data, $AR.checked_idx(doff, dcap)))
+      val doff = $AR.add_g1(dbase, i)
+      val b = byte2int0($A.get<byte>(data, doff))
       val () = $A.set<byte>(pb, i,
         $A.int2byte($AR.checked_byte($AR.band_int_int(b, 255))))
-    in copy_tail(data, pb, $AR.add_g1(i, 1), n, doff + 1, dcap) end
+    in copy_tail(data, pb, $AR.add_g1(i, 1), n, dbase, dcap) end
 
-  val tl = $AR.checked_idx(if $AR.gt_int_int(tail_len, 64) then 64 else tail_len, 129)
-  val () = copy_tail(data, pbuf, 0, tl, total_done, data_len)
+  val () = copy_tail(data, pbuf, 0, tail_len, total_done, data_len)
 
-  val () = $A.set<byte>(pbuf, $AR.checked_idx(tail_len, 128),
+  val () = $A.set<byte>(pbuf, tail_len,
     $A.int2byte($AR.checked_byte(128)))
 
   val need_two = $AR.gt_int_int(tail_len + 9, 64)
-  val bit_len_pos: int = if need_two then 120 else 56
   val high_bits = _ushr(data_len, 29)
   val low_bits = _mask32($AR.bsl_int_int(data_len, 3))
 
-  fn _wb_len {lp:agz}
-    (pb: !$A.arr(byte, lp, 128), p: int, hi: int, lo: int): void = let
-    val () = $A.set<byte>(pb, $AR.checked_idx(p, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 24), 255))))
-    val () = $A.set<byte>(pb, $AR.checked_idx(p+1, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 16), 255))))
-    val () = $A.set<byte>(pb, $AR.checked_idx(p+2, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 8), 255))))
-    val () = $A.set<byte>(pb, $AR.checked_idx(p+3, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(hi, 255))))
-    val () = $A.set<byte>(pb, $AR.checked_idx(p+4, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 24), 255))))
-    val () = $A.set<byte>(pb, $AR.checked_idx(p+5, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 16), 255))))
-    val () = $A.set<byte>(pb, $AR.checked_idx(p+6, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 8), 255))))
-    val () = $A.set<byte>(pb, $AR.checked_idx(p+7, 128), $A.int2byte($AR.checked_byte($AR.band_int_int(lo, 255))))
+  fn _wb_len {lp:agz}{p:nat | p + 8 <= 128}
+    (pb: !$A.arr(byte, lp, 128), pos: int(p), hi: int, lo: int): void = let
+    val () = $A.set<byte>(pb, pos, $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 24), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 1), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 16), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 2), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(hi, 8), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 3), $A.int2byte($AR.checked_byte($AR.band_int_int(hi, 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 4), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 24), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 5), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 16), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 6), $A.int2byte($AR.checked_byte($AR.band_int_int(_ushr(lo, 8), 255))))
+    val () = $A.set<byte>(pb, $AR.add_g1(pos, 7), $A.int2byte($AR.checked_byte($AR.band_int_int(lo, 255))))
   in end
 
-  val () = _wb_len(pbuf, bit_len_pos, high_bits, low_bits)
+  fn _write_bit_len {lp:agz}
+    (pb: !$A.arr(byte, lp, 128), two: bool, hi: int, lo: int): void =
+    if two then _wb_len(pb, 120, hi, lo)
+    else _wb_len(pb, 56, hi, lo)
+  val () = _write_bit_len(pbuf, need_two, high_bits, low_bits)
 
-  val nblocks = $AR.checked_nat(if need_two then 2 else 1)
-  fun proc_pad {lp:agz}{lw:agz}{lh:agz}{k:nat}{n:nat | k <= n} .<n-k>.
+  fn _do_proc_pad {lp:agz}{lw:agz}{lh:agz}
     (pb: !$A.arr(byte, lp, 128), ww: !$A.arr(int, lw, 64),
-     hh: !$A.arr(int, lh, 8), i: int(k), n: int(n), boff: int): void =
-    if $AR.gte_g1(i, n) then ()
-    else let
-      val () = _sha256_compress(pb, 128, boff, ww, hh)
-    in proc_pad(pb, ww, hh, $AR.add_g1(i, 1), n, boff + 64) end
-  val () = proc_pad(pbuf, w, h, 0, nblocks, 0)
+     hh: !$A.arr(int, lh, 8), two: bool): void = let
+    val () = _sha256_compress(pb, 128, 0, ww, hh)
+    val () = if two then _sha256_compress(pb, 128, 64, ww, hh) else ()
+  in end
+  val () = _do_proc_pad(pbuf, w, h, need_two)
 
-  fun write_hex {lo:agz}{lh:agz}{k:nat | k <= 8} .<8-k>.
-    (out: !$A.arr(byte, lo, 64), h: !$A.arr(int, lh, 8), i: int(k), pos: int): void =
-    if $AR.gte_g1(i, 8) then ()
-    else let
-      val () = _write_hex_word(out, pos, _ai(h, i, 8))
-    in write_hex(out, h, $AR.add_g1(i, 1), pos + 8) end
+  fn _do_write_hex {lo:agz}{lh:agz}
+    (out: !$A.arr(byte, lo, 64), h: !$A.arr(int, lh, 8)): void = let
+    fun loop {lo:agz}{lh:agz}{k:nat | k <= 8} .<8-k>.
+      (out: !$A.arr(byte, lo, 64), h: !$A.arr(int, lh, 8), i: int(k)): void =
+      if $AR.gte_g1(i, 8) then ()
+      else let
+        val pos = $AR.mul_g1(i, 8)
+        val () = _write_hex_word(out, pos, _ai(h, i, 8))
+      in loop(out, h, $AR.add_g1(i, 1)) end
+  in loop(out, h, 0) end
 
-  val () = write_hex(out, h, 0, 0)
+  val () = _do_write_hex(out, h)
 
   val () = $A.free<byte>(pbuf)
   val () = $A.free<int>(w)
