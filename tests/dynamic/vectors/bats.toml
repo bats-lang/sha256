@@ -1,0 +1,7 @@
+[package]
+name = "vectors"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"sha256" = ""
