@@ -191,6 +191,271 @@ implement small_sigma_1 (xh, xl) = let
 in (SMALL_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
 
 (* ============================================================
+   Words in an array, and the message schedules, proved
+   (FIPS 180-4, sections 6.1.2 and 6.2.2, step 1)
+
+   The cells of a byte array are known to the types (array's barr). A
+   word of an array is four of its cells, the most significant byte
+   first, so a word needs no array of its own and a message block's words
+   are read from the bytes the block is: WORD_AT(cells, at, high, low) says
+   that the four cells from `at` are the word high:low (high = 256 * b0 +
+   b1, low = 256 * b2 + b3), and WORD_SET that setting four cells made the
+   word. The words of the schedule are stored at 4 * t.
+   ============================================================ *)
+
+(* WORD_AT(cs, at, high, low): the cells at, at + 1, at + 2 and at + 3 of
+   cs are the word high:low, big endian *)
+#pub dataprop WORD_AT($A.cells, int, int, int) =
+  | {cs:$A.cells}{at,b0,b1,b2,b3:nat | b0 < 256; b1 < 256; b2 < 256; b3 < 256}
+    WORD_AT_mk(cs, at, 256*b0 + b1, 256*b2 + b3) of (
+      $A.NTH(cs, at, b0), $A.NTH(cs, at + 1, b1),
+      $A.NTH(cs, at + 2, b2), $A.NTH(cs, at + 3, b3))
+
+(* WORD_SET(cs, at, high, low, cs2): cs2 is cs with the four cells from
+   `at` set to the word high:low, one after the other *)
+#pub dataprop WORD_SET($A.cells, int, int, int, $A.cells) =
+  | {cs,cs1,cs2,cs3,cs4:$A.cells}{at,b0,b1,b2,b3:nat | b0 < 256; b1 < 256; b2 < 256; b3 < 256}
+    WORD_SET_mk(cs, at, 256*b0 + b1, 256*b2 + b3, cs4) of (
+      $A.SETC(cs, at, b0, cs1), $A.SETC(cs1, at + 1, b1, cs2),
+      $A.SETC(cs2, at + 2, b2, cs3), $A.SETC(cs3, at + 3, b3, cs4))
+
+(* The word at `at`, with the proof that it is *)
+#pub fun word_get {l:agz}{n,at:nat | at + 3 < n}{cs:$A.cells}
+  (cells: !$A.barr(l, n, cs), at: int at)
+  : [high,low:nat | high < 65536; low < 65536] (WORD_AT(cs, at, high, low) | @(int high, int low))
+
+implement word_get {l}{n,at}{cs} (cells, at) = let
+  val (first | b0) = $A.barr_get(cells, at)
+  val (second | b1) = $A.barr_get(cells, at + 1)
+  val (third | b2) = $A.barr_get(cells, at + 2)
+  val (fourth | b3) = $A.barr_get(cells, at + 3)
+in (WORD_AT_mk(first, second, third, fourth) | @(256 * b0 + b1, 256 * b2 + b3)) end
+
+(* The four cells from `at` set to the word, with the proof that they are *)
+#pub fun word_set {l:agz}{n,at:nat | at + 3 < n}{cs:$A.cells}{high,low:nat | high < 65536; low < 65536}
+  (cells: $A.barr(l, n, cs), at: int at, high: int high, low: int low)
+  : [cs2:$A.cells] (WORD_SET(cs, at, high, low, cs2) | $A.barr(l, n, cs2))
+
+implement word_set {l}{n,at}{cs}{high,low} (cells, at, high, low) = let
+  val b0 = high / 256
+  val b1 = high - 256 * b0
+  val b2 = low / 256
+  val b3 = low - 256 * b2
+  val (first | cells) = $A.barr_set(cells, at, b0)
+  val (second | cells) = $A.barr_set(cells, at + 1, b1)
+  val (third | cells) = $A.barr_set(cells, at + 2, b2)
+  val (fourth | cells) = $A.barr_set(cells, at + 3, b3)
+in (WORD_SET_mk(first, second, third, fourth) | cells) end
+
+(* What was set is the word that is read there afterwards *)
+#pub prfun word_set_at {cs,cs2:$A.cells}{at,high,low:nat}
+  (WORD_SET(cs, at, high, low, cs2)): WORD_AT(cs2, at, high, low)
+
+primplement word_set_at {cs,cs2}{at,high,low} (set) = let
+  prval WORD_SET_mk(s0, s1, s2, s3) = set
+  prval n3 = $A.setc_nth_same(s3)
+  prval n2 = $A.setc_nth_other(s3, $A.setc_nth_same(s2))
+  prval n1 = $A.setc_nth_other(s3, $A.setc_nth_other(s2, $A.setc_nth_same(s1)))
+  prval n0 = $A.setc_nth_other(s3, $A.setc_nth_other(s2, $A.setc_nth_other(s1, $A.setc_nth_same(s0))))
+in WORD_AT_mk(n0, n1, n2, n3) end
+
+(* A word whose cells are not the four set is as it was *)
+#pub prfun word_set_other {cs,cs2:$A.cells}{at,high,low,other,other_high,other_low:nat | at + 4 <= other || other + 4 <= at}
+  (WORD_SET(cs, at, high, low, cs2), WORD_AT(cs, other, other_high, other_low))
+  : WORD_AT(cs2, other, other_high, other_low)
+
+primplement word_set_other {cs,cs2}{at,high,low,other,other_high,other_low} (set, word) = let
+  prval WORD_SET_mk(s0, s1, s2, s3) = set
+  prval WORD_AT_mk(n0, n1, n2, n3) = word
+  prfn through {c0,c1,c2,c3,c4:$A.cells}{b0,b1,b2,b3:nat}{index,value:nat | index + 1 <= at || at + 4 <= index}
+    (s0: $A.SETC(c0, at, b0, c1), s1: $A.SETC(c1, at + 1, b1, c2), s2: $A.SETC(c2, at + 2, b2, c3),
+     s3: $A.SETC(c3, at + 3, b3, c4), n: $A.NTH(c0, index, value)): $A.NTH(c4, index, value) =
+    $A.setc_nth_other(s3, $A.setc_nth_other(s2, $A.setc_nth_other(s1, $A.setc_nth_other(s0, n))))
+in WORD_AT_mk(through(s0, s1, s2, s3, n0), through(s0, s1, s2, s3, n1),
+              through(s0, s1, s2, s3, n2), through(s0, s1, s2, s3, n3)) end
+
+(* A word is one word: the cells are one value *)
+#pub prfun word_at_functional {cs:$A.cells}{at,high,low,high2,low2:nat}
+  (WORD_AT(cs, at, high, low), WORD_AT(cs, at, high2, low2)): [high == high2; low == low2] void
+
+primplement word_at_functional {cs}{at,high,low,high2,low2} (first, second) = let
+  prval WORD_AT_mk(a0, a1, a2, a3) = first
+  prval WORD_AT_mk(b0, b1, b2, b3) = second
+  prval () = $A.nth_functional(a0, b0)
+  prval () = $A.nth_functional(a1, b1)
+  prval () = $A.nth_functional(a2, b2)
+  prval () = $A.nth_functional(a3, b3)
+in end
+
+(* ============================================================
+   The schedule words of the standard
+
+   SCHEDULE(kind, msg, at, t, high, low): W_t of the block that is the 64
+   bytes from `at` of the cells msg is the word high:low, by the standard's
+   definition and nothing of any array: for t under 16 the t-th word of the
+   block (section 6.1.2 step 1, 6.2.2 step 1), and above:
+     SHA-256: W_t = sigma1(W_t-2) + W_t-7 + sigma0(W_t-15) + W_t-16,
+       added in that order, each modulo 2 to the 32 (ADD32)
+     SHA-1: W_t = ROTL 1 (W_t-3 xor W_t-8 xor W_t-14 xor W_t-16), the
+       rotation left by one being the rotation right by 31
+   ============================================================ *)
+
+#pub datasort schedule_kind =
+  | sha256_kind of ()
+  | sha1_kind of ()
+
+#pub dataprop SCHEDULE(schedule_kind, $A.cells, int, int, int, int) =
+  | {kind:schedule_kind}{msg:$A.cells}{at,t:nat | t < 16}{high,low:nat}
+    SCHEDULE_message(kind, msg, at, t, high, low) of WORD_AT(msg, at + 4*t, high, low)
+  | {msg:$A.cells}{at,t:nat | 16 <= t}
+    {back2_high,back2_low,back7_high,back7_low,back15_high,back15_low,back16_high,back16_low:nat}
+    {s1_high,s1_low,s0_high,s0_low,sum1_high,sum1_low,sum2_high,sum2_low,high,low:nat}
+    SCHEDULE_sha256(sha256_kind(), msg, at, t, high, low) of (
+      SCHEDULE(sha256_kind(), msg, at, t-2, back2_high, back2_low),
+      SCHEDULE(sha256_kind(), msg, at, t-7, back7_high, back7_low),
+      SCHEDULE(sha256_kind(), msg, at, t-15, back15_high, back15_low),
+      SCHEDULE(sha256_kind(), msg, at, t-16, back16_high, back16_low),
+      SMALL_SIGMA_1(back2_high, back2_low, s1_high, s1_low),
+      SMALL_SIGMA_0(back15_high, back15_low, s0_high, s0_low),
+      $AR.ADD32(s1_high, s1_low, back7_high, back7_low, sum1_high, sum1_low),
+      $AR.ADD32(sum1_high, sum1_low, s0_high, s0_low, sum2_high, sum2_low),
+      $AR.ADD32(sum2_high, sum2_low, back16_high, back16_low, high, low))
+  | {msg:$A.cells}{at,t:nat | 16 <= t}
+    {back3_high,back3_low,back8_high,back8_low,back14_high,back14_low,back16_high,back16_low:nat}
+    {x1_high,x1_low,x2_high,x2_low,x3_high,x3_low,high,low:nat}
+    SCHEDULE_sha1(sha1_kind(), msg, at, t, high, low) of (
+      SCHEDULE(sha1_kind(), msg, at, t-3, back3_high, back3_low),
+      SCHEDULE(sha1_kind(), msg, at, t-8, back8_high, back8_low),
+      SCHEDULE(sha1_kind(), msg, at, t-14, back14_high, back14_low),
+      SCHEDULE(sha1_kind(), msg, at, t-16, back16_high, back16_low),
+      $AR.XOR(back3_high, back8_high, x1_high), $AR.XOR(back3_low, back8_low, x1_low),
+      $AR.XOR(x1_high, back14_high, x2_high), $AR.XOR(x1_low, back14_low, x2_low),
+      $AR.XOR(x2_high, back16_high, x3_high), $AR.XOR(x2_low, back16_low, x3_low),
+      $AR.ROTR(31, x3_high, x3_low, high, low))
+
+(* SCHEDULE_ARRAY(kind, words, msg, at, count): the first count words of
+   the array whose cells are `words`, at 4 * t, are W_0 to W_count-1 of
+   the block *)
+#pub dataprop SCHEDULE_ARRAY(schedule_kind, $A.cells, $A.cells, int, int) =
+  | {kind:schedule_kind}{words,msg:$A.cells}{at:nat}
+    SCHEDULE_ARRAY_nil(kind, words, msg, at, 0)
+  | {kind:schedule_kind}{words,msg:$A.cells}{at,count:nat}{high,low:nat}
+    SCHEDULE_ARRAY_cons(kind, words, msg, at, count + 1) of (
+      SCHEDULE_ARRAY(kind, words, msg, at, count),
+      WORD_AT(words, 4*count, high, low),
+      SCHEDULE(kind, msg, at, count, high, low))
+
+(* Word i of the first count words of the array, and what the standard
+   says it is *)
+#pub prfun schedule_array_get {kind:schedule_kind}{words,msg:$A.cells}{at,count,i:nat | i < count}
+  (SCHEDULE_ARRAY(kind, words, msg, at, count))
+  : [high,low:nat] (WORD_AT(words, 4*i, high, low), SCHEDULE(kind, msg, at, i, high, low))
+
+primplement schedule_array_get {kind}{words,msg}{at,count,i} (listed) =
+  case+ listed of
+  | SCHEDULE_ARRAY_cons(rest, word, specified) =>
+      sif i == count - 1 then (word, specified)
+      else schedule_array_get{kind}{words,msg}{at,count-1,i}(rest)
+
+(* Setting a word beyond the first count leaves the first count as they were *)
+#pub prfun schedule_array_frame {kind:schedule_kind}{words,words2,msg:$A.cells}{at,count,set_at,high,low:nat | 4*count <= set_at}
+  (WORD_SET(words, set_at, high, low, words2), SCHEDULE_ARRAY(kind, words, msg, at, count))
+  : SCHEDULE_ARRAY(kind, words2, msg, at, count)
+
+primplement schedule_array_frame {kind}{words,words2,msg}{at,count,set_at,high,low} (set, listed) =
+  case+ listed of
+  | SCHEDULE_ARRAY_nil() => SCHEDULE_ARRAY_nil()
+  | SCHEDULE_ARRAY_cons(rest, word, specified) =>
+      SCHEDULE_ARRAY_cons(schedule_array_frame{kind}{words,words2,msg}{at,count-1,set_at,high,low}(set, rest),
+                          word_set_other(set, word), specified)
+
+(* Words 0 to 15 of the array are the block's own words *)
+fun _schedule_load {kind:schedule_kind}{lm:agz}{nm:nat}{msg:$A.cells}{at:nat | at + 64 <= nm}
+  {lw:agz}{nw:nat | 64 <= nw}{words:$A.cells}{t:nat | t <= 16} .<16 - t>.
+  (message: !$A.barr(lm, nm, msg), at: int at, array: $A.barr(lw, nw, words), t: int t,
+   loaded: SCHEDULE_ARRAY(kind, words, msg, at, t))
+  : [words2:$A.cells] (SCHEDULE_ARRAY(kind, words2, msg, at, 16) | $A.barr(lw, nw, words2)) =
+  if t >= 16 then (loaded | array)
+  else let
+    val (read | @(high, low)) = word_get(message, at + 4 * t)
+    val (set | array) = word_set(array, 4 * t, high, low)
+    prval kept = schedule_array_frame(set, loaded)
+  in _schedule_load(message, at, array, t + 1,
+       SCHEDULE_ARRAY_cons(kept, word_set_at(set), SCHEDULE_message(read))) end
+
+(* Word i of the array read and tied to the standard's W_i *)
+fn _scheduled {kind:schedule_kind}{lw:agz}{nw:nat}{words,msg:$A.cells}{at,count,i:nat | i < count; 4*i + 3 < nw}
+  (array: !$A.barr(lw, nw, words), listed: SCHEDULE_ARRAY(kind, words, msg, at, count), i: int i)
+  : [high,low:nat | high < 65536; low < 65536] (SCHEDULE(kind, msg, at, i, high, low) | @(int high, int low)) = let
+  val (read | @(high, low)) = word_get(array, 4 * i)
+  prval @(known, specified) = schedule_array_get{kind}{words,msg}{at,count,i}(listed)
+  prval () = word_at_functional(read, known)
+in (specified | @(high, low)) end
+
+(* W_t for t from 16 to 63 of SHA-256, each from the earlier ones *)
+fun _schedule_sha256_expand {lw:agz}{words:$A.cells}{msg:$A.cells}{at:nat}{t:nat | 16 <= t; t <= 64} .<64 - t>.
+  (array: $A.barr(lw, 256, words), t: int t,
+   listed: SCHEDULE_ARRAY(sha256_kind(), words, msg, at, t))
+  : [words2:$A.cells] (SCHEDULE_ARRAY(sha256_kind(), words2, msg, at, 64) | $A.barr(lw, 256, words2)) =
+  if t >= 64 then (listed | array)
+  else let
+    val (back2 | @(back2_high, back2_low)) = _scheduled(array, listed, t - 2)
+    val (back7 | @(back7_high, back7_low)) = _scheduled(array, listed, t - 7)
+    val (back15 | @(back15_high, back15_low)) = _scheduled(array, listed, t - 15)
+    val (back16 | @(back16_high, back16_low)) = _scheduled(array, listed, t - 16)
+    val (sigma1 | @(s1_high, s1_low)) = small_sigma_1(back2_high, back2_low)
+    val (sigma0 | @(s0_high, s0_low)) = small_sigma_0(back15_high, back15_low)
+    val (add1 | @(sum1_high, sum1_low)) = $AR.add32(s1_high, s1_low, back7_high, back7_low)
+    val (add2 | @(sum2_high, sum2_low)) = $AR.add32(sum1_high, sum1_low, s0_high, s0_low)
+    val (add3 | @(high, low)) = $AR.add32(sum2_high, sum2_low, back16_high, back16_low)
+    val (set | array) = word_set(array, 4 * t, high, low)
+    prval kept = schedule_array_frame(set, listed)
+    prval specified = SCHEDULE_sha256(back2, back7, back15, back16, sigma1, sigma0, add1, add2, add3)
+  in _schedule_sha256_expand(array, t + 1,
+       SCHEDULE_ARRAY_cons(kept, word_set_at(set), specified)) end
+
+(* W_t for t from 16 to 79 of SHA-1, each from the earlier ones *)
+fun _schedule_sha1_expand {lw:agz}{words:$A.cells}{msg:$A.cells}{at:nat}{t:nat | 16 <= t; t <= 80} .<80 - t>.
+  (array: $A.barr(lw, 320, words), t: int t,
+   listed: SCHEDULE_ARRAY(sha1_kind(), words, msg, at, t))
+  : [words2:$A.cells] (SCHEDULE_ARRAY(sha1_kind(), words2, msg, at, 80) | $A.barr(lw, 320, words2)) =
+  if t >= 80 then (listed | array)
+  else let
+    val (back3 | @(back3_high, back3_low)) = _scheduled(array, listed, t - 3)
+    val (back8 | @(back8_high, back8_low)) = _scheduled(array, listed, t - 8)
+    val (back14 | @(back14_high, back14_low)) = _scheduled(array, listed, t - 14)
+    val (back16 | @(back16_high, back16_low)) = _scheduled(array, listed, t - 16)
+    val (xor1_high, xor1_low | @(x1_high, x1_low)) = $AR.xor32(back3_high, back3_low, back8_high, back8_low)
+    val (xor2_high, xor2_low | @(x2_high, x2_low)) = $AR.xor32(x1_high, x1_low, back14_high, back14_low)
+    val (xor3_high, xor3_low | @(x3_high, x3_low)) = $AR.xor32(x2_high, x2_low, back16_high, back16_low)
+    val (turned | @(high, low)) = $AR.rotr(31, x3_high, x3_low)
+    val (set | array) = word_set(array, 4 * t, high, low)
+    prval kept = schedule_array_frame(set, listed)
+    prval specified = SCHEDULE_sha1(back3, back8, back14, back16, xor1_high, xor1_low, xor2_high, xor2_low, xor3_high, xor3_low, turned)
+  in _schedule_sha1_expand(array, t + 1,
+       SCHEDULE_ARRAY_cons(kept, word_set_at(set), specified)) end
+
+(* The 64 words of SHA-256's message schedule of the block of 64 bytes
+   from `at` of the message, in the array at 4 * t, with the proof that
+   each is the standard's W_t *)
+#pub fun schedule_sha256 {lm:agz}{nm:nat}{msg:$A.cells}{at:nat | at + 64 <= nm}{lw:agz}{words:$A.cells}
+  (message: !$A.barr(lm, nm, msg), at: int at, array: $A.barr(lw, 256, words))
+  : [words2:$A.cells] (SCHEDULE_ARRAY(sha256_kind(), words2, msg, at, 64) | $A.barr(lw, 256, words2))
+
+implement schedule_sha256 {lm}{nm}{msg}{at}{lw}{words} (message, at, array) = let
+  val (loaded | array) = _schedule_load{sha256_kind()}(message, at, array, 0, SCHEDULE_ARRAY_nil())
+in _schedule_sha256_expand(array, 16, loaded) end
+
+(* The 80 words of SHA-1's message schedule, likewise *)
+#pub fun schedule_sha1 {lm:agz}{nm:nat}{msg:$A.cells}{at:nat | at + 64 <= nm}{lw:agz}{words:$A.cells}
+  (message: !$A.barr(lm, nm, msg), at: int at, array: $A.barr(lw, 320, words))
+  : [words2:$A.cells] (SCHEDULE_ARRAY(sha1_kind(), words2, msg, at, 80) | $A.barr(lw, 320, words2))
+
+implement schedule_sha1 {lm}{nm}{msg}{at}{lw}{words} (message, at, array) = let
+  val (loaded | array) = _schedule_load{sha1_kind()}(message, at, array, 0, SCHEDULE_ARRAY_nil())
+in _schedule_sha1_expand(array, 16, loaded) end
+
+(* ============================================================
    Round constants (FIPS 180-4, section 4.2.2)
    ============================================================ *)
 

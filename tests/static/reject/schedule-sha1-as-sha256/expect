@@ -1,0 +1,1 @@
+schedule-sha1-as-sha256.bats: 588(line=10, offs=9) -- 654(line=10, offs=75): error(3): the pattern cannot be given the ascribed type.
