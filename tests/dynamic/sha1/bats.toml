@@ -1,5 +1,5 @@
 [package]
-name = "sha1vectors"
+name = "sha1"
 kind = "bin"
 
 [dependencies]
