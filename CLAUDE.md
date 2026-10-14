@@ -28,3 +28,16 @@ that would move instead of moving it: move it in a pull request of its
 own. A pull request that needs newer packages runs `bats lock
 --repository <dir>` and commits `bats.lock` (and
 `.github/repository-version`) with the change.
+
+## The word functions are proved (bats-lang/sha256#29, stage A)
+
+`word_ch`, `word_maj`, `big_sigma_0`, `big_sigma_1`, `small_sigma_0` and
+`small_sigma_1` take and give a word as its two 16-bit halves (arith's
+`rotr`, `shr`, `add32`, `xor32`, `and32`; the solver is 32-bit, so no
+proof names 2 to the 32) and return the proof of the relation `CH`, `MAJ`,
+`BIG_SIGMA_0`, ... that is the standard's definition (FIPS 180-4, section
+4.1.2) composed from arith's bit specifications. `tests/dynamic/word_functions`
+runs them on the published trace of SHA-256 over "abc". The digest
+functions (`hash`, `update`, `finish`, `sha1_digest`) are still written
+and tested, not proved: the schedule, the rounds, the padding and the
+digest are stages B to D of the plan in the issue.

@@ -61,6 +61,136 @@ fn _ssig1 (x: uint): uint = _rotr(x, 17) lxor _rotr(x, 19) lxor (x >> 10)
 fn _u (x: int): uint = g0int2uint_int_uint(x)
 
 (* ============================================================
+   The word functions, proved (FIPS 180-4, section 4.1.2)
+
+   A word is its two 16-bit halves (arith's ROTR, SHR, ADD32: the solver
+   is 32-bit, so no proof names 2 to the 32). Each relation below is the
+   standard's definition of the function, composed from arith's
+   specifications of the bit operations; each function returns the proof
+   that its result is related to its arguments (sha256#29).
+   ============================================================ *)
+
+(* CH(xh, xl, yh, yl, zh, zl, rh, rl): r is Ch(x, y, z) = (x and y) xor
+   ((not x) and z) *)
+#pub dataprop CH(int, int, int, int, int, int, int, int) =
+  | {xh,xl,yh,yl,zh,zl,ah,al,nh,nl,bh,bl,rh,rl:nat}
+    CH_mk(xh, xl, yh, yl, zh, zl, rh, rl) of (
+      $AR.AND(xh, yh, ah), $AR.AND(xl, yl, al),
+      $AR.NOT32(xh, xl, nh, nl),
+      $AR.AND(nh, zh, bh), $AR.AND(nl, zl, bl),
+      $AR.XOR(ah, bh, rh), $AR.XOR(al, bl, rl))
+
+(* MAJ(xh, xl, yh, yl, zh, zl, rh, rl): r is Maj(x, y, z) = (x and y) xor
+   (x and z) xor (y and z) *)
+#pub dataprop MAJ(int, int, int, int, int, int, int, int) =
+  | {xh,xl,yh,yl,zh,zl,ah,al,bh,bl,ch,cl,sh,sl,rh,rl:nat}
+    MAJ_mk(xh, xl, yh, yl, zh, zl, rh, rl) of (
+      $AR.AND(xh, yh, ah), $AR.AND(xl, yl, al),
+      $AR.AND(xh, zh, bh), $AR.AND(xl, zl, bl),
+      $AR.AND(yh, zh, ch), $AR.AND(yl, zl, cl),
+      $AR.XOR(ah, bh, sh), $AR.XOR(al, bl, sl),
+      $AR.XOR(sh, ch, rh), $AR.XOR(sl, cl, rl))
+
+(* BIG_SIGMA_0(xh, xl, rh, rl): r is the upper case sigma 0 of x,
+   ROTR 2 xor ROTR 13 xor ROTR 22; BIG_SIGMA_1: ROTR 6, 11, 25 *)
+#pub dataprop BIG_SIGMA_0(int, int, int, int) =
+  | {xh,xl,ah,al,bh,bl,ch,cl,sh,sl,rh,rl:nat}
+    BIG_SIGMA_0_mk(xh, xl, rh, rl) of (
+      $AR.ROTR(2, xh, xl, ah, al), $AR.ROTR(13, xh, xl, bh, bl), $AR.ROTR(22, xh, xl, ch, cl),
+      $AR.XOR(ah, bh, sh), $AR.XOR(al, bl, sl),
+      $AR.XOR(sh, ch, rh), $AR.XOR(sl, cl, rl))
+
+#pub dataprop BIG_SIGMA_1(int, int, int, int) =
+  | {xh,xl,ah,al,bh,bl,ch,cl,sh,sl,rh,rl:nat}
+    BIG_SIGMA_1_mk(xh, xl, rh, rl) of (
+      $AR.ROTR(6, xh, xl, ah, al), $AR.ROTR(11, xh, xl, bh, bl), $AR.ROTR(25, xh, xl, ch, cl),
+      $AR.XOR(ah, bh, sh), $AR.XOR(al, bl, sl),
+      $AR.XOR(sh, ch, rh), $AR.XOR(sl, cl, rl))
+
+(* SMALL_SIGMA_0(xh, xl, rh, rl): r is the lower case sigma 0 of x, ROTR 7
+   xor ROTR 18 xor SHR 3; SMALL_SIGMA_1: ROTR 17 xor ROTR 19 xor SHR 10 *)
+#pub dataprop SMALL_SIGMA_0(int, int, int, int) =
+  | {xh,xl,ah,al,bh,bl,ch,cl,sh,sl,rh,rl:nat}
+    SMALL_SIGMA_0_mk(xh, xl, rh, rl) of (
+      $AR.ROTR(7, xh, xl, ah, al), $AR.ROTR(18, xh, xl, bh, bl), $AR.SHR(3, xh, xl, ch, cl),
+      $AR.XOR(ah, bh, sh), $AR.XOR(al, bl, sl),
+      $AR.XOR(sh, ch, rh), $AR.XOR(sl, cl, rl))
+
+#pub dataprop SMALL_SIGMA_1(int, int, int, int) =
+  | {xh,xl,ah,al,bh,bl,ch,cl,sh,sl,rh,rl:nat}
+    SMALL_SIGMA_1_mk(xh, xl, rh, rl) of (
+      $AR.ROTR(17, xh, xl, ah, al), $AR.ROTR(19, xh, xl, bh, bl), $AR.SHR(10, xh, xl, ch, cl),
+      $AR.XOR(ah, bh, sh), $AR.XOR(al, bl, sl),
+      $AR.XOR(sh, ch, rh), $AR.XOR(sl, cl, rl))
+
+#pub fun word_ch {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
+  (xh: int xh, xl: int xl, yh: int yh, yl: int yl, zh: int zh, zl: int zl)
+  : [rh,rl:nat | rh < 65536; rl < 65536] (CH(xh, xl, yh, yl, zh, zl, rh, rl) | @(int rh, int rl))
+
+implement word_ch (xh, xl, yh, yl, zh, zl) = let
+  val (pah, pal | @(ah, al)) = $AR.and32(xh, xl, yh, yl)
+  val (pnot | @(nh, nl)) = $AR.not32(xh, xl)
+  val (pbh, pbl | @(bh, bl)) = $AR.and32(nh, nl, zh, zl)
+  val (prh, prl | @(rh, rl)) = $AR.xor32(ah, al, bh, bl)
+in (CH_mk(pah, pal, pnot, pbh, pbl, prh, prl) | @(rh, rl)) end
+
+#pub fun word_maj {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
+  (xh: int xh, xl: int xl, yh: int yh, yl: int yl, zh: int zh, zl: int zl)
+  : [rh,rl:nat | rh < 65536; rl < 65536] (MAJ(xh, xl, yh, yl, zh, zl, rh, rl) | @(int rh, int rl))
+
+implement word_maj (xh, xl, yh, yl, zh, zl) = let
+  val (pah, pal | @(ah, al)) = $AR.and32(xh, xl, yh, yl)
+  val (pbh, pbl | @(bh, bl)) = $AR.and32(xh, xl, zh, zl)
+  val (pch, pcl | @(ch, cl)) = $AR.and32(yh, yl, zh, zl)
+  val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
+  val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
+in (MAJ_mk(pah, pal, pbh, pbl, pch, pcl, psh, psl, prh, prl) | @(rh, rl)) end
+
+#pub fun big_sigma_0 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
+  : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_0(xh, xl, rh, rl) | @(int rh, int rl))
+
+implement big_sigma_0 (xh, xl) = let
+  val (pa | @(ah, al)) = $AR.rotr(2, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr(13, xh, xl)
+  val (pc | @(ch, cl)) = $AR.rotr(22, xh, xl)
+  val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
+  val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
+in (BIG_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
+
+#pub fun big_sigma_1 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
+  : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_1(xh, xl, rh, rl) | @(int rh, int rl))
+
+implement big_sigma_1 (xh, xl) = let
+  val (pa | @(ah, al)) = $AR.rotr(6, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr(11, xh, xl)
+  val (pc | @(ch, cl)) = $AR.rotr(25, xh, xl)
+  val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
+  val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
+in (BIG_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
+
+#pub fun small_sigma_0 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
+  : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_0(xh, xl, rh, rl) | @(int rh, int rl))
+
+implement small_sigma_0 (xh, xl) = let
+  val (pa | @(ah, al)) = $AR.rotr(7, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr(18, xh, xl)
+  val (pc | @(ch, cl)) = $AR.shr(3, xh, xl)
+  val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
+  val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
+in (SMALL_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
+
+#pub fun small_sigma_1 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
+  : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_1(xh, xl, rh, rl) | @(int rh, int rl))
+
+implement small_sigma_1 (xh, xl) = let
+  val (pa | @(ah, al)) = $AR.rotr(17, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr(19, xh, xl)
+  val (pc | @(ch, cl)) = $AR.shr(10, xh, xl)
+  val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
+  val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
+in (SMALL_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
+
+(* ============================================================
    Round constants (FIPS 180-4, section 4.2.2)
    ============================================================ *)
 
