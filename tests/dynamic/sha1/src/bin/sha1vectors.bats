@@ -7,15 +7,16 @@
    3, 55, 56, 63, 64, 65, 119 and 120 sit on both sides of the padding's
    one-block and two-block edges; 1000 and 100000 cover many blocks.
    Known answers only: the proof is owed. *)
-fn hex_digit {d:nat | d < 16} (d: int d): int =
-  if d < 10 then 48 + d else 87 + d
+fn hex_digit (d: int): int = let
+  val e = g1ofg0(d)
+in if e >= 0 then (if e < 10 then 48 + e else if e < 16 then 87 + e else 63) else 63 end
 
 fun pr {l:agz}{i:nat | i <= 20} .<20 - i>. (o: !$A.arr(byte, l, 20), i: int i): void =
   if i >= 20 then ()
   else let
     val b = byte2int0($A.get<byte>(o, i))
-    val high = nmod(b / 16, 16)
-    val low = nmod(b, 16)
+    val high = b / 16
+    val low = b - 16 * high
     val () = print_char(int2char0(hex_digit(high)))
     val () = print_char(int2char0(hex_digit(low)))
   in pr(o, i + 1) end
