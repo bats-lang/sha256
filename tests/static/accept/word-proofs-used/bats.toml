@@ -1,0 +1,7 @@
+[package]
+name = "word-proofs-used"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"sha256" = ""
