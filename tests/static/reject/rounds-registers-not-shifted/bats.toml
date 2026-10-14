@@ -1,0 +1,8 @@
+[package]
+name = "rounds-registers-not-shifted"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

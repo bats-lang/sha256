@@ -1,0 +1,8 @@
+[package]
+name = "sha1-constant-of-another-range"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

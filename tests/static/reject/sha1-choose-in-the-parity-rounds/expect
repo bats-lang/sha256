@@ -1,0 +1,1 @@
+sha1-choose-in-the-parity-rounds.bats: 510(line=10, offs=21) -- 510(line=10, offs=21): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(<=); S2EVar

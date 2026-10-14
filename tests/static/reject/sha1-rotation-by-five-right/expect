@@ -1,0 +1,1 @@
+sha1-rotation-by-five-right.bats: 1392(line=16, offs=22) -- 1397(line=16, offs=27): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(5); S2Eintinf(27)))

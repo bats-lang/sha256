@@ -456,6 +456,731 @@ implement schedule_sha1 {lm}{nm}{msg}{at}{lw}{words} (message, at, array) = let
 in _schedule_sha1_expand(array, 16, loaded) end
 
 (* ============================================================
+   The round constants, the rounds and the block's chaining add
+   (FIPS 180-4, sections 4.2.2, 5.3.3 and 6.2.2 steps 2 to 4 for SHA-256;
+   4.1.1, 4.2.1, 5.3.1 and 6.1.2 steps 2 to 4 for SHA-1), proved against
+   the standard (bats-lang/sha256#29, stage C)
+
+   The state of the rounds is eight words (SHA-1: five), each a word as its
+   two 16-bit halves. `word` is the sort of a word, w32(high, low), and
+   `eight_words` and `five_words` those of the states, so a relation between
+   states names every word of both, and the register shifts of a round are
+   in the indices: the state after a round of SHA-256 is
+   eight(new a, a, b, c, new e, e, f, g).
+   ============================================================ *)
+
+#pub datasort word = | w32 of (int, int)
+
+#pub datasort eight_words =
+  | eight of (word, word, word, word, word, word, word, word)
+
+#pub datasort five_words = | five of (word, word, word, word, word)
+
+(* The words of a state in an array: EIGHT_AT(cs, at, s) says the 32 cells
+   from `at` of cs are the eight words of s, in order, big endian (the
+   chaining value H of SHA-256 is kept so); FIVE_AT the 20 cells of SHA-1's *)
+#pub dataprop EIGHT_AT($A.cells, int, eight_words) =
+  | {cs:$A.cells}{at:nat}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat}
+    EIGHT_AT_mk(cs, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))) of (
+      WORD_AT(cs, at + 0, h0_high, h0_low),
+      WORD_AT(cs, at + 4, h1_high, h1_low),
+      WORD_AT(cs, at + 8, h2_high, h2_low),
+      WORD_AT(cs, at + 12, h3_high, h3_low),
+      WORD_AT(cs, at + 16, h4_high, h4_low),
+      WORD_AT(cs, at + 20, h5_high, h5_low),
+      WORD_AT(cs, at + 24, h6_high, h6_low),
+      WORD_AT(cs, at + 28, h7_high, h7_low))
+
+#pub dataprop FIVE_AT($A.cells, int, five_words) =
+  | {cs:$A.cells}{at:nat}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat}
+    FIVE_AT_mk(cs, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))) of (
+      WORD_AT(cs, at + 0, h0_high, h0_low),
+      WORD_AT(cs, at + 4, h1_high, h1_low),
+      WORD_AT(cs, at + 8, h2_high, h2_low),
+      WORD_AT(cs, at + 12, h3_high, h3_low),
+      WORD_AT(cs, at + 16, h4_high, h4_low))
+
+(* The 8 words of a state at `at`, read from the array; the proof says what
+   they are, and the values returned are those the proof names *)
+#pub fun eight_get {lc:agz}{n,at:nat | at + 31 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536}
+  (cells: !$A.barr(lc, n, cs), at: int at,
+   have: EIGHT_AT(cs, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))))
+  : @(int h0_high, int h0_low, int h1_high, int h1_low, int h2_high, int h2_low, int h3_high, int h3_low, int h4_high, int h4_low, int h5_high, int h5_low, int h6_high, int h6_low, int h7_high, int h7_low)
+
+implement eight_get {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low} (cells, at, have) = let
+  prval EIGHT_AT_mk(known0, known1, known2, known3, known4, known5, known6, known7) = have
+  val (read0 | @(read0_high, read0_low)) = word_get(cells, at + 0)
+  prval () = word_at_functional(read0, known0)
+  val (read1 | @(read1_high, read1_low)) = word_get(cells, at + 4)
+  prval () = word_at_functional(read1, known1)
+  val (read2 | @(read2_high, read2_low)) = word_get(cells, at + 8)
+  prval () = word_at_functional(read2, known2)
+  val (read3 | @(read3_high, read3_low)) = word_get(cells, at + 12)
+  prval () = word_at_functional(read3, known3)
+  val (read4 | @(read4_high, read4_low)) = word_get(cells, at + 16)
+  prval () = word_at_functional(read4, known4)
+  val (read5 | @(read5_high, read5_low)) = word_get(cells, at + 20)
+  prval () = word_at_functional(read5, known5)
+  val (read6 | @(read6_high, read6_low)) = word_get(cells, at + 24)
+  prval () = word_at_functional(read6, known6)
+  val (read7 | @(read7_high, read7_low)) = word_get(cells, at + 28)
+  prval () = word_at_functional(read7, known7)
+in @(read0_high, read0_low, read1_high, read1_low, read2_high, read2_low, read3_high, read3_low, read4_high, read4_low, read5_high, read5_low, read6_high, read6_low, read7_high, read7_low) end
+
+(* The 8 words written at `at`, with the proof that they are there *)
+#pub fun eight_set {lc:agz}{n,at:nat | at + 31 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536}
+  (cells: $A.barr(lc, n, cs), at: int at, h0_high: int h0_high, h0_low: int h0_low, h1_high: int h1_high, h1_low: int h1_low, h2_high: int h2_high, h2_low: int h2_low, h3_high: int h3_high, h3_low: int h3_low, h4_high: int h4_high, h4_low: int h4_low, h5_high: int h5_high, h5_low: int h5_low, h6_high: int h6_high, h6_low: int h6_low, h7_high: int h7_high, h7_low: int h7_low)
+  : [cs2:$A.cells] (EIGHT_AT(cs2, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))) | $A.barr(lc, n, cs2))
+
+implement eight_set {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low} (cells, at, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low) = let
+  val (set0 | cells) = word_set(cells, at + 0, h0_high, h0_low)
+  val (set1 | cells) = word_set(cells, at + 4, h1_high, h1_low)
+  val (set2 | cells) = word_set(cells, at + 8, h2_high, h2_low)
+  val (set3 | cells) = word_set(cells, at + 12, h3_high, h3_low)
+  val (set4 | cells) = word_set(cells, at + 16, h4_high, h4_low)
+  val (set5 | cells) = word_set(cells, at + 20, h5_high, h5_low)
+  val (set6 | cells) = word_set(cells, at + 24, h6_high, h6_low)
+  val (set7 | cells) = word_set(cells, at + 28, h7_high, h7_low)
+  prval stored0 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_other(set1, word_set_at(set0))))))))
+  prval stored1 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_at(set1)))))))
+  prval stored2 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_other(set3, word_set_at(set2))))))
+  prval stored3 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_at(set3)))))
+  prval stored4 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_at(set4))))
+  prval stored5 = word_set_other(set7, word_set_other(set6, word_set_at(set5)))
+  prval stored6 = word_set_other(set7, word_set_at(set6))
+  prval stored7 = word_set_at(set7)
+in (EIGHT_AT_mk(stored0, stored1, stored2, stored3, stored4, stored5, stored6, stored7) | cells) end
+
+(* The 5 words of a state at `at`, read from the array; the proof says what
+   they are, and the values returned are those the proof names *)
+#pub fun five_get {lc:agz}{n,at:nat | at + 19 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536}
+  (cells: !$A.barr(lc, n, cs), at: int at,
+   have: FIVE_AT(cs, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))))
+  : @(int h0_high, int h0_low, int h1_high, int h1_low, int h2_high, int h2_low, int h3_high, int h3_low, int h4_high, int h4_low)
+
+implement five_get {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low} (cells, at, have) = let
+  prval FIVE_AT_mk(known0, known1, known2, known3, known4) = have
+  val (read0 | @(read0_high, read0_low)) = word_get(cells, at + 0)
+  prval () = word_at_functional(read0, known0)
+  val (read1 | @(read1_high, read1_low)) = word_get(cells, at + 4)
+  prval () = word_at_functional(read1, known1)
+  val (read2 | @(read2_high, read2_low)) = word_get(cells, at + 8)
+  prval () = word_at_functional(read2, known2)
+  val (read3 | @(read3_high, read3_low)) = word_get(cells, at + 12)
+  prval () = word_at_functional(read3, known3)
+  val (read4 | @(read4_high, read4_low)) = word_get(cells, at + 16)
+  prval () = word_at_functional(read4, known4)
+in @(read0_high, read0_low, read1_high, read1_low, read2_high, read2_low, read3_high, read3_low, read4_high, read4_low) end
+
+(* The 5 words written at `at`, with the proof that they are there *)
+#pub fun five_set {lc:agz}{n,at:nat | at + 19 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536}
+  (cells: $A.barr(lc, n, cs), at: int at, h0_high: int h0_high, h0_low: int h0_low, h1_high: int h1_high, h1_low: int h1_low, h2_high: int h2_high, h2_low: int h2_low, h3_high: int h3_high, h3_low: int h3_low, h4_high: int h4_high, h4_low: int h4_low)
+  : [cs2:$A.cells] (FIVE_AT(cs2, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))) | $A.barr(lc, n, cs2))
+
+implement five_set {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low} (cells, at, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low) = let
+  val (set0 | cells) = word_set(cells, at + 0, h0_high, h0_low)
+  val (set1 | cells) = word_set(cells, at + 4, h1_high, h1_low)
+  val (set2 | cells) = word_set(cells, at + 8, h2_high, h2_low)
+  val (set3 | cells) = word_set(cells, at + 12, h3_high, h3_low)
+  val (set4 | cells) = word_set(cells, at + 16, h4_high, h4_low)
+  prval stored0 = word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_other(set1, word_set_at(set0)))))
+  prval stored1 = word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_at(set1))))
+  prval stored2 = word_set_other(set4, word_set_other(set3, word_set_at(set2)))
+  prval stored3 = word_set_other(set4, word_set_at(set3))
+  prval stored4 = word_set_at(set4)
+in (FIVE_AT_mk(stored0, stored1, stored2, stored3, stored4) | cells) end
+
+(* SHA256_K(t, high, low): the constant K_t of SHA-256 (section 4.2.2) is
+   the word high:low. The standard defines the 64 constants as the first 32
+   bits of the fractional parts of the cube roots of the first 64 primes; the
+   table states them as the standard prints them, and the compiler checks
+   that the rounds use the table's word for round t and no other. That each is
+   what the definition says is NOT proved: the proof needs integers of 2 to
+   the 100, which the 32-bit solver cannot hold. It is tested against the
+   integer cube roots (tests/dynamic/constants) and owed (a p2 issue). *)
+#pub dataprop SHA256_K(int, int, int) =
+  | SHA256_K_0(0, 0x428a, 0x2f98)
+  | SHA256_K_1(1, 0x7137, 0x4491)
+  | SHA256_K_2(2, 0xb5c0, 0xfbcf)
+  | SHA256_K_3(3, 0xe9b5, 0xdba5)
+  | SHA256_K_4(4, 0x3956, 0xc25b)
+  | SHA256_K_5(5, 0x59f1, 0x11f1)
+  | SHA256_K_6(6, 0x923f, 0x82a4)
+  | SHA256_K_7(7, 0xab1c, 0x5ed5)
+  | SHA256_K_8(8, 0xd807, 0xaa98)
+  | SHA256_K_9(9, 0x1283, 0x5b01)
+  | SHA256_K_10(10, 0x2431, 0x85be)
+  | SHA256_K_11(11, 0x550c, 0x7dc3)
+  | SHA256_K_12(12, 0x72be, 0x5d74)
+  | SHA256_K_13(13, 0x80de, 0xb1fe)
+  | SHA256_K_14(14, 0x9bdc, 0x06a7)
+  | SHA256_K_15(15, 0xc19b, 0xf174)
+  | SHA256_K_16(16, 0xe49b, 0x69c1)
+  | SHA256_K_17(17, 0xefbe, 0x4786)
+  | SHA256_K_18(18, 0x0fc1, 0x9dc6)
+  | SHA256_K_19(19, 0x240c, 0xa1cc)
+  | SHA256_K_20(20, 0x2de9, 0x2c6f)
+  | SHA256_K_21(21, 0x4a74, 0x84aa)
+  | SHA256_K_22(22, 0x5cb0, 0xa9dc)
+  | SHA256_K_23(23, 0x76f9, 0x88da)
+  | SHA256_K_24(24, 0x983e, 0x5152)
+  | SHA256_K_25(25, 0xa831, 0xc66d)
+  | SHA256_K_26(26, 0xb003, 0x27c8)
+  | SHA256_K_27(27, 0xbf59, 0x7fc7)
+  | SHA256_K_28(28, 0xc6e0, 0x0bf3)
+  | SHA256_K_29(29, 0xd5a7, 0x9147)
+  | SHA256_K_30(30, 0x06ca, 0x6351)
+  | SHA256_K_31(31, 0x1429, 0x2967)
+  | SHA256_K_32(32, 0x27b7, 0x0a85)
+  | SHA256_K_33(33, 0x2e1b, 0x2138)
+  | SHA256_K_34(34, 0x4d2c, 0x6dfc)
+  | SHA256_K_35(35, 0x5338, 0x0d13)
+  | SHA256_K_36(36, 0x650a, 0x7354)
+  | SHA256_K_37(37, 0x766a, 0x0abb)
+  | SHA256_K_38(38, 0x81c2, 0xc92e)
+  | SHA256_K_39(39, 0x9272, 0x2c85)
+  | SHA256_K_40(40, 0xa2bf, 0xe8a1)
+  | SHA256_K_41(41, 0xa81a, 0x664b)
+  | SHA256_K_42(42, 0xc24b, 0x8b70)
+  | SHA256_K_43(43, 0xc76c, 0x51a3)
+  | SHA256_K_44(44, 0xd192, 0xe819)
+  | SHA256_K_45(45, 0xd699, 0x0624)
+  | SHA256_K_46(46, 0xf40e, 0x3585)
+  | SHA256_K_47(47, 0x106a, 0xa070)
+  | SHA256_K_48(48, 0x19a4, 0xc116)
+  | SHA256_K_49(49, 0x1e37, 0x6c08)
+  | SHA256_K_50(50, 0x2748, 0x774c)
+  | SHA256_K_51(51, 0x34b0, 0xbcb5)
+  | SHA256_K_52(52, 0x391c, 0x0cb3)
+  | SHA256_K_53(53, 0x4ed8, 0xaa4a)
+  | SHA256_K_54(54, 0x5b9c, 0xca4f)
+  | SHA256_K_55(55, 0x682e, 0x6ff3)
+  | SHA256_K_56(56, 0x748f, 0x82ee)
+  | SHA256_K_57(57, 0x78a5, 0x636f)
+  | SHA256_K_58(58, 0x84c8, 0x7814)
+  | SHA256_K_59(59, 0x8cc7, 0x0208)
+  | SHA256_K_60(60, 0x90be, 0xfffa)
+  | SHA256_K_61(61, 0xa450, 0x6ceb)
+  | SHA256_K_62(62, 0xbef9, 0xa3f7)
+  | SHA256_K_63(63, 0xc671, 0x78f2)
+
+(* The constant of round t, with the proof that it is the table's *)
+#pub fun sha256_k {t:nat | t < 64} (t: int t)
+  : [high,low:nat | high < 65536; low < 65536] (SHA256_K(t, high, low) | @(int high, int low))
+
+implement sha256_k {t} (t) =
+  if $AR.lt_g1(t, 32) then
+    if $AR.lt_g1(t, 16) then
+      if $AR.lt_g1(t, 8) then
+        if $AR.lt_g1(t, 4) then
+          if $AR.lt_g1(t, 2) then
+            if $AR.lt_g1(t, 1) then
+              (SHA256_K_0() | @(0x428a, 0x2f98))
+            else
+              (SHA256_K_1() | @(0x7137, 0x4491))
+          else
+            if $AR.lt_g1(t, 3) then
+              (SHA256_K_2() | @(0xb5c0, 0xfbcf))
+            else
+              (SHA256_K_3() | @(0xe9b5, 0xdba5))
+        else
+          if $AR.lt_g1(t, 6) then
+            if $AR.lt_g1(t, 5) then
+              (SHA256_K_4() | @(0x3956, 0xc25b))
+            else
+              (SHA256_K_5() | @(0x59f1, 0x11f1))
+          else
+            if $AR.lt_g1(t, 7) then
+              (SHA256_K_6() | @(0x923f, 0x82a4))
+            else
+              (SHA256_K_7() | @(0xab1c, 0x5ed5))
+      else
+        if $AR.lt_g1(t, 12) then
+          if $AR.lt_g1(t, 10) then
+            if $AR.lt_g1(t, 9) then
+              (SHA256_K_8() | @(0xd807, 0xaa98))
+            else
+              (SHA256_K_9() | @(0x1283, 0x5b01))
+          else
+            if $AR.lt_g1(t, 11) then
+              (SHA256_K_10() | @(0x2431, 0x85be))
+            else
+              (SHA256_K_11() | @(0x550c, 0x7dc3))
+        else
+          if $AR.lt_g1(t, 14) then
+            if $AR.lt_g1(t, 13) then
+              (SHA256_K_12() | @(0x72be, 0x5d74))
+            else
+              (SHA256_K_13() | @(0x80de, 0xb1fe))
+          else
+            if $AR.lt_g1(t, 15) then
+              (SHA256_K_14() | @(0x9bdc, 0x06a7))
+            else
+              (SHA256_K_15() | @(0xc19b, 0xf174))
+    else
+      if $AR.lt_g1(t, 24) then
+        if $AR.lt_g1(t, 20) then
+          if $AR.lt_g1(t, 18) then
+            if $AR.lt_g1(t, 17) then
+              (SHA256_K_16() | @(0xe49b, 0x69c1))
+            else
+              (SHA256_K_17() | @(0xefbe, 0x4786))
+          else
+            if $AR.lt_g1(t, 19) then
+              (SHA256_K_18() | @(0x0fc1, 0x9dc6))
+            else
+              (SHA256_K_19() | @(0x240c, 0xa1cc))
+        else
+          if $AR.lt_g1(t, 22) then
+            if $AR.lt_g1(t, 21) then
+              (SHA256_K_20() | @(0x2de9, 0x2c6f))
+            else
+              (SHA256_K_21() | @(0x4a74, 0x84aa))
+          else
+            if $AR.lt_g1(t, 23) then
+              (SHA256_K_22() | @(0x5cb0, 0xa9dc))
+            else
+              (SHA256_K_23() | @(0x76f9, 0x88da))
+      else
+        if $AR.lt_g1(t, 28) then
+          if $AR.lt_g1(t, 26) then
+            if $AR.lt_g1(t, 25) then
+              (SHA256_K_24() | @(0x983e, 0x5152))
+            else
+              (SHA256_K_25() | @(0xa831, 0xc66d))
+          else
+            if $AR.lt_g1(t, 27) then
+              (SHA256_K_26() | @(0xb003, 0x27c8))
+            else
+              (SHA256_K_27() | @(0xbf59, 0x7fc7))
+        else
+          if $AR.lt_g1(t, 30) then
+            if $AR.lt_g1(t, 29) then
+              (SHA256_K_28() | @(0xc6e0, 0x0bf3))
+            else
+              (SHA256_K_29() | @(0xd5a7, 0x9147))
+          else
+            if $AR.lt_g1(t, 31) then
+              (SHA256_K_30() | @(0x06ca, 0x6351))
+            else
+              (SHA256_K_31() | @(0x1429, 0x2967))
+  else
+    if $AR.lt_g1(t, 48) then
+      if $AR.lt_g1(t, 40) then
+        if $AR.lt_g1(t, 36) then
+          if $AR.lt_g1(t, 34) then
+            if $AR.lt_g1(t, 33) then
+              (SHA256_K_32() | @(0x27b7, 0x0a85))
+            else
+              (SHA256_K_33() | @(0x2e1b, 0x2138))
+          else
+            if $AR.lt_g1(t, 35) then
+              (SHA256_K_34() | @(0x4d2c, 0x6dfc))
+            else
+              (SHA256_K_35() | @(0x5338, 0x0d13))
+        else
+          if $AR.lt_g1(t, 38) then
+            if $AR.lt_g1(t, 37) then
+              (SHA256_K_36() | @(0x650a, 0x7354))
+            else
+              (SHA256_K_37() | @(0x766a, 0x0abb))
+          else
+            if $AR.lt_g1(t, 39) then
+              (SHA256_K_38() | @(0x81c2, 0xc92e))
+            else
+              (SHA256_K_39() | @(0x9272, 0x2c85))
+      else
+        if $AR.lt_g1(t, 44) then
+          if $AR.lt_g1(t, 42) then
+            if $AR.lt_g1(t, 41) then
+              (SHA256_K_40() | @(0xa2bf, 0xe8a1))
+            else
+              (SHA256_K_41() | @(0xa81a, 0x664b))
+          else
+            if $AR.lt_g1(t, 43) then
+              (SHA256_K_42() | @(0xc24b, 0x8b70))
+            else
+              (SHA256_K_43() | @(0xc76c, 0x51a3))
+        else
+          if $AR.lt_g1(t, 46) then
+            if $AR.lt_g1(t, 45) then
+              (SHA256_K_44() | @(0xd192, 0xe819))
+            else
+              (SHA256_K_45() | @(0xd699, 0x0624))
+          else
+            if $AR.lt_g1(t, 47) then
+              (SHA256_K_46() | @(0xf40e, 0x3585))
+            else
+              (SHA256_K_47() | @(0x106a, 0xa070))
+    else
+      if $AR.lt_g1(t, 56) then
+        if $AR.lt_g1(t, 52) then
+          if $AR.lt_g1(t, 50) then
+            if $AR.lt_g1(t, 49) then
+              (SHA256_K_48() | @(0x19a4, 0xc116))
+            else
+              (SHA256_K_49() | @(0x1e37, 0x6c08))
+          else
+            if $AR.lt_g1(t, 51) then
+              (SHA256_K_50() | @(0x2748, 0x774c))
+            else
+              (SHA256_K_51() | @(0x34b0, 0xbcb5))
+        else
+          if $AR.lt_g1(t, 54) then
+            if $AR.lt_g1(t, 53) then
+              (SHA256_K_52() | @(0x391c, 0x0cb3))
+            else
+              (SHA256_K_53() | @(0x4ed8, 0xaa4a))
+          else
+            if $AR.lt_g1(t, 55) then
+              (SHA256_K_54() | @(0x5b9c, 0xca4f))
+            else
+              (SHA256_K_55() | @(0x682e, 0x6ff3))
+      else
+        if $AR.lt_g1(t, 60) then
+          if $AR.lt_g1(t, 58) then
+            if $AR.lt_g1(t, 57) then
+              (SHA256_K_56() | @(0x748f, 0x82ee))
+            else
+              (SHA256_K_57() | @(0x78a5, 0x636f))
+          else
+            if $AR.lt_g1(t, 59) then
+              (SHA256_K_58() | @(0x84c8, 0x7814))
+            else
+              (SHA256_K_59() | @(0x8cc7, 0x0208))
+        else
+          if $AR.lt_g1(t, 62) then
+            if $AR.lt_g1(t, 61) then
+              (SHA256_K_60() | @(0x90be, 0xfffa))
+            else
+              (SHA256_K_61() | @(0xa450, 0x6ceb))
+          else
+            if $AR.lt_g1(t, 63) then
+              (SHA256_K_62() | @(0xbef9, 0xa3f7))
+            else
+              (SHA256_K_63() | @(0xc671, 0x78f2))
+
+(* SHA256_ROUND(a, b, c, d, e, f, g, h, k, w, new_a, new_e): one round of
+   SHA-256 (section 6.2.2 step 3) from the working variables a to h, the
+   constant k and the schedule word w:
+     T1 = h + BIG_SIGMA_1(e) + Ch(e, f, g) + k + w
+     T2 = BIG_SIGMA_0(a) + Maj(a, b, c)
+   each sum modulo 2 to the 32, in that order; the new a is T1 + T2 and the
+   new e is d + T1. The other variables shift (h = g, g = f, f = e, d = c,
+   c = b, b = a), which SHA256_ROUNDS puts in its indices. *)
+#pub dataprop SHA256_ROUND(word, word, word, word, word, word, word, word, word, word, word, word) =
+  | {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,f_high,f_low,g_high,g_low,h_high,h_low,k_high,k_low,w_high,w_low,big1_high,big1_low,ch_high,ch_low,sum1_high,sum1_low,sum2_high,sum2_low,sum3_high,sum3_low,t1_high,t1_low,big0_high,big0_low,maj_high,maj_low,t2_high,t2_low,new_a_high,new_a_low,new_e_high,new_e_low:nat}
+    SHA256_ROUND_mk(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low), w32(h_high, h_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_e_high, new_e_low)) of (
+      BIG_SIGMA_1(e_high, e_low, big1_high, big1_low),
+      CH(e_high, e_low, f_high, f_low, g_high, g_low, ch_high, ch_low),
+      $AR.ADD32(h_high, h_low, big1_high, big1_low, sum1_high, sum1_low),
+      $AR.ADD32(sum1_high, sum1_low, ch_high, ch_low, sum2_high, sum2_low),
+      $AR.ADD32(sum2_high, sum2_low, k_high, k_low, sum3_high, sum3_low),
+      $AR.ADD32(sum3_high, sum3_low, w_high, w_low, t1_high, t1_low),
+      BIG_SIGMA_0(a_high, a_low, big0_high, big0_low),
+      MAJ(a_high, a_low, b_high, b_low, c_high, c_low, maj_high, maj_low),
+      $AR.ADD32(big0_high, big0_low, maj_high, maj_low, t2_high, t2_low),
+      $AR.ADD32(t1_high, t1_low, t2_high, t2_low, new_a_high, new_a_low),
+      $AR.ADD32(d_high, d_low, t1_high, t1_low, new_e_high, new_e_low))
+
+(* One round, with the proof that its results are the standard's *)
+#pub fun sha256_round {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,f_high,f_low,g_high,g_low,h_high,h_low,k_high,k_low,w_high,w_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; f_high < 65536; f_low < 65536; g_high < 65536; g_low < 65536; h_high < 65536; h_low < 65536; k_high < 65536; k_low < 65536; w_high < 65536; w_low < 65536}
+  (a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low, f_high: int f_high, f_low: int f_low, g_high: int g_high, g_low: int g_low, h_high: int h_high, h_low: int h_low, k_high: int k_high, k_low: int k_low, w_high: int w_high, w_low: int w_low)
+  : [new_a_high,new_a_low,new_e_high,new_e_low:nat | new_a_high < 65536; new_a_low < 65536; new_e_high < 65536; new_e_low < 65536]
+    (SHA256_ROUND(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low), w32(h_high, h_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_e_high, new_e_low)) | @(int new_a_high, int new_a_low, int new_e_high, int new_e_low))
+
+implement sha256_round (a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, f_high, f_low, g_high, g_low, h_high, h_low, k_high, k_low, w_high, w_low) = let
+  val (big1 | @(big1_high, big1_low)) = big_sigma_1(e_high, e_low)
+  val (choice | @(ch_high, ch_low)) = word_ch(e_high, e_low, f_high, f_low, g_high, g_low)
+  val (add1 | @(sum1_high, sum1_low)) = $AR.add32(h_high, h_low, big1_high, big1_low)
+  val (add2 | @(sum2_high, sum2_low)) = $AR.add32(sum1_high, sum1_low, ch_high, ch_low)
+  val (add3 | @(sum3_high, sum3_low)) = $AR.add32(sum2_high, sum2_low, k_high, k_low)
+  val (add4 | @(t1_high, t1_low)) = $AR.add32(sum3_high, sum3_low, w_high, w_low)
+  val (big0 | @(big0_high, big0_low)) = big_sigma_0(a_high, a_low)
+  val (majority | @(maj_high, maj_low)) = word_maj(a_high, a_low, b_high, b_low, c_high, c_low)
+  val (add5 | @(t2_high, t2_low)) = $AR.add32(big0_high, big0_low, maj_high, maj_low)
+  val (add6 | @(new_a_high, new_a_low)) = $AR.add32(t1_high, t1_low, t2_high, t2_low)
+  val (add7 | @(new_e_high, new_e_low)) = $AR.add32(d_high, d_low, t1_high, t1_low)
+in (SHA256_ROUND_mk(big1, choice, add1, add2, add3, add4, big0, majority, add5, add6, add7)
+    | @(new_a_high, new_a_low, new_e_high, new_e_low)) end
+
+(* SHA256_ROUNDS(msg, at, t, init, state): after t rounds of the block of 64
+   bytes from `at` of the cells msg, begun with the working variables init,
+   the working variables are state. Round t uses K_t and the schedule word
+   W_t of that block (SCHEDULE), and ends in the state of SHA256_ROUND with
+   its registers shifted. *)
+#pub dataprop SHA256_ROUNDS($A.cells, int, int, eight_words, eight_words) =
+  | {msg:$A.cells}{at:nat}{init:eight_words}
+    SHA256_ROUNDS_zero(msg, at, 0, init, init)
+  | {msg:$A.cells}{at,t:nat | t < 64}{init:eight_words}
+    {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,f_high,f_low,g_high,g_low,h_high,h_low,k_high,k_low,w_high,w_low,new_a_high,new_a_low,new_e_high,new_e_low:nat}
+    SHA256_ROUNDS_next(msg, at, t+1, init,
+      eight(w32(new_a_high, new_a_low), w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low),
+            w32(new_e_high, new_e_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low))) of (
+      SHA256_ROUNDS(msg, at, t, init, eight(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low), w32(h_high, h_low))),
+      SHA256_K(t, k_high, k_low),
+      SCHEDULE(sha256_kind(), msg, at, t, w_high, w_low),
+      SHA256_ROUND(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low), w32(h_high, h_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_e_high, new_e_low)))
+
+(* SHA256_BLOCK(msg, at, before, after): the block of 64 bytes from `at` of
+   msg, hashed onto the chaining value `before` (section 6.2.2), makes the
+   chaining value `after`: the 64 rounds begun with the working variables
+   a to h set to `before`, and the new chaining value is each working
+   variable at the end added (modulo 2 to the 32) to the same word of
+   `before` (step 4) *)
+#pub dataprop SHA256_BLOCK($A.cells, int, eight_words, eight_words) =
+  | {msg:$A.cells}{at:nat}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low,end_a_high,end_a_low,end_b_high,end_b_low,end_c_high,end_c_low,end_d_high,end_d_low,end_e_high,end_e_low,end_f_high,end_f_low,end_g_high,end_g_low,end_h_high,end_h_low,next_h0_high,next_h0_low,next_h1_high,next_h1_low,next_h2_high,next_h2_low,next_h3_high,next_h3_low,next_h4_high,next_h4_low,next_h5_high,next_h5_low,next_h6_high,next_h6_low,next_h7_high,next_h7_low:nat}
+    SHA256_BLOCK_mk(msg, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low)), eight(w32(next_h0_high, next_h0_low), w32(next_h1_high, next_h1_low), w32(next_h2_high, next_h2_low), w32(next_h3_high, next_h3_low), w32(next_h4_high, next_h4_low), w32(next_h5_high, next_h5_low), w32(next_h6_high, next_h6_low), w32(next_h7_high, next_h7_low))) of (
+      SHA256_ROUNDS(msg, at, 64, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low)), eight(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low), w32(end_f_high, end_f_low), w32(end_g_high, end_g_low), w32(end_h_high, end_h_low))),
+      $AR.ADD32(h0_high, h0_low, end_a_high, end_a_low, next_h0_high, next_h0_low),
+      $AR.ADD32(h1_high, h1_low, end_b_high, end_b_low, next_h1_high, next_h1_low),
+      $AR.ADD32(h2_high, h2_low, end_c_high, end_c_low, next_h2_high, next_h2_low),
+      $AR.ADD32(h3_high, h3_low, end_d_high, end_d_low, next_h3_high, next_h3_low),
+      $AR.ADD32(h4_high, h4_low, end_e_high, end_e_low, next_h4_high, next_h4_low),
+      $AR.ADD32(h5_high, h5_low, end_f_high, end_f_low, next_h5_high, next_h5_low),
+      $AR.ADD32(h6_high, h6_low, end_g_high, end_g_low, next_h6_high, next_h6_low),
+      $AR.ADD32(h7_high, h7_low, end_h_high, end_h_low, next_h7_high, next_h7_low))
+
+(* The 64 rounds, each with the proof that it is the standard's, from the
+   working variables a to h after t rounds *)
+fun _rounds256 {lw:agz}{words,msg:$A.cells}{at:nat}{init:eight_words}{t:nat | t <= 64}
+  {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,f_high,f_low,g_high,g_low,h_high,h_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; f_high < 65536; f_low < 65536; g_high < 65536; g_low < 65536; h_high < 65536; h_low < 65536} .<64 - t>.
+  (schedule: !$A.barr(lw, 256, words), listed: SCHEDULE_ARRAY(sha256_kind(), words, msg, at, 64), t: int t,
+   a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low, f_high: int f_high, f_low: int f_low, g_high: int g_high, g_low: int g_low, h_high: int h_high, h_low: int h_low,
+   done: SHA256_ROUNDS(msg, at, t, init, eight(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low), w32(h_high, h_low))))
+  : [end_a_high,end_a_low,end_b_high,end_b_low,end_c_high,end_c_low,end_d_high,end_d_low,end_e_high,end_e_low,end_f_high,end_f_low,end_g_high,end_g_low,end_h_high,end_h_low:nat | end_a_high < 65536; end_a_low < 65536; end_b_high < 65536; end_b_low < 65536; end_c_high < 65536; end_c_low < 65536; end_d_high < 65536; end_d_low < 65536; end_e_high < 65536; end_e_low < 65536; end_f_high < 65536; end_f_low < 65536; end_g_high < 65536; end_g_low < 65536; end_h_high < 65536; end_h_low < 65536]
+    (SHA256_ROUNDS(msg, at, 64, init, eight(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low), w32(end_f_high, end_f_low), w32(end_g_high, end_g_low), w32(end_h_high, end_h_low))) | @(int end_a_high, int end_a_low, int end_b_high, int end_b_low, int end_c_high, int end_c_low, int end_d_high, int end_d_low, int end_e_high, int end_e_low, int end_f_high, int end_f_low, int end_g_high, int end_g_low, int end_h_high, int end_h_low)) =
+  if t >= 64 then (done | @(a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, f_high, f_low, g_high, g_low, h_high, h_low))
+  else let
+    val (constant | @(k_high, k_low)) = sha256_k(t)
+    val (word | @(w_high, w_low)) = _scheduled(schedule, listed, t)
+    val (step | @(new_a_high, new_a_low, new_e_high, new_e_low)) =
+      sha256_round(a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, f_high, f_low, g_high, g_low, h_high, h_low, k_high, k_low, w_high, w_low)
+  in _rounds256(schedule, listed, t + 1,
+       new_a_high, new_a_low, a_high, a_low, b_high, b_low, c_high, c_low,
+       new_e_high, new_e_low, e_high, e_low, f_high, f_low, g_high, g_low,
+       SHA256_ROUNDS_next(done, constant, word, step)) end
+
+(* The block of 64 bytes from `at` of the message hashed onto the chaining
+   value in the array (32 bytes, eight words, at 0) and the new chaining value
+   written there, with the proof that it is the standard's. The array
+   `schedule` is scratch space for the 64 words of the message schedule. *)
+#pub fun sha256_compress {lm:agz}{nm:nat}{msg:$A.cells}{at:nat | at + 64 <= nm}
+  {lw:agz}{words:$A.cells}{lc:agz}{chain:$A.cells}
+  {h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536}
+  (message: !$A.barr(lm, nm, msg), at: int at, schedule: $A.barr(lw, 256, words),
+   chaining: $A.barr(lc, 32, chain), have: EIGHT_AT(chain, 0, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))))
+  : [words2:$A.cells][chain2:$A.cells][next_h0_high,next_h0_low,next_h1_high,next_h1_low,next_h2_high,next_h2_low,next_h3_high,next_h3_low,next_h4_high,next_h4_low,next_h5_high,next_h5_low,next_h6_high,next_h6_low,next_h7_high,next_h7_low:nat | next_h0_high < 65536; next_h0_low < 65536; next_h1_high < 65536; next_h1_low < 65536; next_h2_high < 65536; next_h2_low < 65536; next_h3_high < 65536; next_h3_low < 65536; next_h4_high < 65536; next_h4_low < 65536; next_h5_high < 65536; next_h5_low < 65536; next_h6_high < 65536; next_h6_low < 65536; next_h7_high < 65536; next_h7_low < 65536]
+    (SHA256_BLOCK(msg, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low)), eight(w32(next_h0_high, next_h0_low), w32(next_h1_high, next_h1_low), w32(next_h2_high, next_h2_low), w32(next_h3_high, next_h3_low), w32(next_h4_high, next_h4_low), w32(next_h5_high, next_h5_low), w32(next_h6_high, next_h6_low), w32(next_h7_high, next_h7_low))),
+     EIGHT_AT(chain2, 0, eight(w32(next_h0_high, next_h0_low), w32(next_h1_high, next_h1_low), w32(next_h2_high, next_h2_low), w32(next_h3_high, next_h3_low), w32(next_h4_high, next_h4_low), w32(next_h5_high, next_h5_low), w32(next_h6_high, next_h6_low), w32(next_h7_high, next_h7_low)))
+     | @($A.barr(lw, 256, words2), $A.barr(lc, 32, chain2)))
+
+implement sha256_compress {lm}{nm}{msg}{at}{lw}{words}{lc}{chain}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low}
+  (message, at, schedule, chaining, have) = let
+  val (listed | schedule) = schedule_sha256(message, at, schedule)
+  val @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low) = eight_get(chaining, 0, have)
+  val (rounds | @(end_a_high, end_a_low, end_b_high, end_b_low, end_c_high, end_c_low, end_d_high, end_d_low, end_e_high, end_e_low, end_f_high, end_f_low, end_g_high, end_g_low, end_h_high, end_h_low)) = _rounds256(schedule, listed, 0,
+    h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low, SHA256_ROUNDS_zero())
+  val (add0 | @(next_h0_high, next_h0_low)) = $AR.add32(h0_high, h0_low, end_a_high, end_a_low)
+  val (add1 | @(next_h1_high, next_h1_low)) = $AR.add32(h1_high, h1_low, end_b_high, end_b_low)
+  val (add2 | @(next_h2_high, next_h2_low)) = $AR.add32(h2_high, h2_low, end_c_high, end_c_low)
+  val (add3 | @(next_h3_high, next_h3_low)) = $AR.add32(h3_high, h3_low, end_d_high, end_d_low)
+  val (add4 | @(next_h4_high, next_h4_low)) = $AR.add32(h4_high, h4_low, end_e_high, end_e_low)
+  val (add5 | @(next_h5_high, next_h5_low)) = $AR.add32(h5_high, h5_low, end_f_high, end_f_low)
+  val (add6 | @(next_h6_high, next_h6_low)) = $AR.add32(h6_high, h6_low, end_g_high, end_g_low)
+  val (add7 | @(next_h7_high, next_h7_low)) = $AR.add32(h7_high, h7_low, end_h_high, end_h_low)
+  val (written | chaining) = eight_set(chaining, 0, next_h0_high, next_h0_low, next_h1_high, next_h1_low, next_h2_high, next_h2_low, next_h3_high, next_h3_low, next_h4_high, next_h4_low, next_h5_high, next_h5_low, next_h6_high, next_h6_low, next_h7_high, next_h7_low)
+in (SHA256_BLOCK_mk(rounds, add0, add1, add2, add3, add4, add5, add6, add7), written | @(schedule, chaining)) end
+
+(* ============================================================
+   SHA-1's rounds (FIPS 180-4, sections 4.1.1, 4.2.1, 5.3.1, 6.1.2)
+   ============================================================ *)
+
+(* PARITY(x, y, z, r): r is Parity(x, y, z) = x xor y xor z (section 4.1.1) *)
+#pub dataprop PARITY(int, int, int, int, int, int, int, int) =
+  | {xh,xl,yh,yl,zh,zl,ah,al,rh,rl:nat}
+    PARITY_mk(xh, xl, yh, yl, zh, zl, rh, rl) of (
+      $AR.XOR(xh, yh, ah), $AR.XOR(xl, yl, al),
+      $AR.XOR(ah, zh, rh), $AR.XOR(al, zl, rl))
+
+(* SHA1_F(t, b, c, d, f): f is f_t(b, c, d) (section 4.1.1): Ch for t from 0
+   to 19, Parity from 20 to 39, Maj from 40 to 59, Parity from 60 to 79 *)
+#pub dataprop SHA1_F(int, int, int, int, int, int, int, int, int) =
+  | {t:nat | t <= 19}{bh,bl,ch,cl,dh,dl,fh,fl:nat}
+    SHA1_F_choose(t, bh, bl, ch, cl, dh, dl, fh, fl) of CH(bh, bl, ch, cl, dh, dl, fh, fl)
+  | {t:nat | 20 <= t; t <= 39}{bh,bl,ch,cl,dh,dl,fh,fl:nat}
+    SHA1_F_parity_first(t, bh, bl, ch, cl, dh, dl, fh, fl) of PARITY(bh, bl, ch, cl, dh, dl, fh, fl)
+  | {t:nat | 40 <= t; t <= 59}{bh,bl,ch,cl,dh,dl,fh,fl:nat}
+    SHA1_F_majority(t, bh, bl, ch, cl, dh, dl, fh, fl) of MAJ(bh, bl, ch, cl, dh, dl, fh, fl)
+  | {t:nat | 60 <= t; t <= 79}{bh,bl,ch,cl,dh,dl,fh,fl:nat}
+    SHA1_F_parity_second(t, bh, bl, ch, cl, dh, dl, fh, fl) of PARITY(bh, bl, ch, cl, dh, dl, fh, fl)
+
+(* Parity of three words, with the proof that it is *)
+#pub fun word_parity {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
+  (xh: int xh, xl: int xl, yh: int yh, yl: int yl, zh: int zh, zl: int zl)
+  : [rh,rl:nat | rh < 65536; rl < 65536] (PARITY(xh, xl, yh, yl, zh, zl, rh, rl) | @(int rh, int rl))
+
+implement word_parity (xh, xl, yh, yl, zh, zl) = let
+  val (pah, pal | @(ah, al)) = $AR.xor32(xh, xl, yh, yl)
+  val (prh, prl | @(rh, rl)) = $AR.xor32(ah, al, zh, zl)
+in (PARITY_mk(pah, pal, prh, prl) | @(rh, rl)) end
+
+(* f_t(b, c, d), with the proof that it is *)
+#pub fun sha1_f {t:nat | t < 80}{bh,bl,ch,cl,dh,dl:nat | bh < 65536; bl < 65536; ch < 65536; cl < 65536; dh < 65536; dl < 65536}
+  (t: int t, bh: int bh, bl: int bl, ch: int ch, cl: int cl, dh: int dh, dl: int dl)
+  : [fh,fl:nat | fh < 65536; fl < 65536] (SHA1_F(t, bh, bl, ch, cl, dh, dl, fh, fl) | @(int fh, int fl))
+
+implement sha1_f {t}{bh,bl,ch,cl,dh,dl} (t, bh, bl, ch, cl, dh, dl) =
+  if $AR.lt_g1(t, 20) then let
+    val (pf | @(fh, fl)) = word_ch(bh, bl, ch, cl, dh, dl)
+  in (SHA1_F_choose(pf) | @(fh, fl)) end
+  else if $AR.lt_g1(t, 40) then let
+    val (pf | @(fh, fl)) = word_parity(bh, bl, ch, cl, dh, dl)
+  in (SHA1_F_parity_first(pf) | @(fh, fl)) end
+  else if $AR.lt_g1(t, 60) then let
+    val (pf | @(fh, fl)) = word_maj(bh, bl, ch, cl, dh, dl)
+  in (SHA1_F_majority(pf) | @(fh, fl)) end
+  else let
+    val (pf | @(fh, fl)) = word_parity(bh, bl, ch, cl, dh, dl)
+  in (SHA1_F_parity_second(pf) | @(fh, fl)) end
+
+(* SHA1_K(t, high, low): the constant K_t of SHA-1 (section 4.2.1) is the word
+   high:low: 5a827999 for t from 0 to 19, 6ed9eba1 from 20 to 39, 8f1bbcdc from
+   40 to 59 and ca62c1d6 from 60 to 79. The standard defines them as the
+   first 30 bits of the square roots of 2, 3, 5 and 10 times 2 to the 30 (the
+   integer part of 2 to the 30 times the root). Like SHA-256's they are stated
+   and tested (tests/dynamic/constants), not proved against the definition
+   (the proof needs integers of 2 to the 61 and more); owed, a p2 issue. *)
+#pub dataprop SHA1_K(int, int, int) =
+  | {t:nat | 0 <= t; t <= 19} SHA1_K_0_to_19(t, 0x5a82, 0x7999)
+  | {t:nat | 20 <= t; t <= 39} SHA1_K_20_to_39(t, 0x6ed9, 0xeba1)
+  | {t:nat | 40 <= t; t <= 59} SHA1_K_40_to_59(t, 0x8f1b, 0xbcdc)
+  | {t:nat | 60 <= t; t <= 79} SHA1_K_60_to_79(t, 0xca62, 0xc1d6)
+
+(* The constant of round t, with the proof that it is the table's *)
+#pub fun sha1_k {t:nat | t < 80} (t: int t)
+  : [high,low:nat | high < 65536; low < 65536] (SHA1_K(t, high, low) | @(int high, int low))
+
+implement sha1_k {t} (t) =
+  if $AR.lt_g1(t, 20) then (SHA1_K_0_to_19() | @(0x5a82, 0x7999))
+  else if $AR.lt_g1(t, 40) then (SHA1_K_20_to_39() | @(0x6ed9, 0xeba1))
+  else if $AR.lt_g1(t, 60) then (SHA1_K_40_to_59() | @(0x8f1b, 0xbcdc))
+  else (SHA1_K_60_to_79() | @(0xca62, 0xc1d6))
+
+(* SHA1_ROUND(t, a, b, c, d, e, k, w, new_a, new_c): round t of SHA-1
+   (section 6.1.2 step 3) from the working variables a to e, the constant k
+   and the schedule word w:
+     T = ROTL 5 (a) + f_t(b, c, d) + e + k + w
+   each sum modulo 2 to the 32, in that order; ROTL 5 is ROTR 27 and ROTL 30
+   is ROTR 2 (arith has no left rotation; ROTL n = ROTR (32 - n) by the
+   standard's definitions of the two). The new a is T and the new c is ROTL 30
+   (b); the others shift (e = d, d = c, b = a), which SHA1_ROUNDS puts in its
+   indices. *)
+#pub dataprop SHA1_ROUND(int, word, word, word, word, word, word, word, word, word) =
+  | {t:nat}{a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,k_high,k_low,w_high,w_low,sum1_high,sum1_low,sum2_high,sum2_low,sum3_high,sum3_low,turn5_high,turn5_low,f_high,f_low,new_a_high,new_a_low,new_c_high,new_c_low:nat}
+    SHA1_ROUND_mk(t, w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_c_high, new_c_low)) of (
+      $AR.ROTR(27, a_high, a_low, turn5_high, turn5_low),
+      SHA1_F(t, b_high, b_low, c_high, c_low, d_high, d_low, f_high, f_low),
+      $AR.ADD32(turn5_high, turn5_low, f_high, f_low, sum1_high, sum1_low),
+      $AR.ADD32(sum1_high, sum1_low, e_high, e_low, sum2_high, sum2_low),
+      $AR.ADD32(sum2_high, sum2_low, k_high, k_low, sum3_high, sum3_low),
+      $AR.ADD32(sum3_high, sum3_low, w_high, w_low, new_a_high, new_a_low),
+      $AR.ROTR(2, b_high, b_low, new_c_high, new_c_low))
+
+(* Round t, with the proof that its results are the standard's *)
+#pub fun sha1_round {t:nat | t < 80}{a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,k_high,k_low,w_high,w_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; k_high < 65536; k_low < 65536; w_high < 65536; w_low < 65536}
+  (t: int t, a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low, k_high: int k_high, k_low: int k_low, w_high: int w_high, w_low: int w_low)
+  : [new_a_high,new_a_low,new_c_high,new_c_low:nat | new_a_high < 65536; new_a_low < 65536; new_c_high < 65536; new_c_low < 65536]
+    (SHA1_ROUND(t, w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_c_high, new_c_low)) | @(int new_a_high, int new_a_low, int new_c_high, int new_c_low))
+
+implement sha1_round (t, a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, k_high, k_low, w_high, w_low) = let
+  val (turn | @(turn5_high, turn5_low)) = $AR.rotr(27, a_high, a_low)
+  val (function | @(f_high, f_low)) = sha1_f(t, b_high, b_low, c_high, c_low, d_high, d_low)
+  val (add1 | @(sum1_high, sum1_low)) = $AR.add32(turn5_high, turn5_low, f_high, f_low)
+  val (add2 | @(sum2_high, sum2_low)) = $AR.add32(sum1_high, sum1_low, e_high, e_low)
+  val (add3 | @(sum3_high, sum3_low)) = $AR.add32(sum2_high, sum2_low, k_high, k_low)
+  val (add4 | @(new_a_high, new_a_low)) = $AR.add32(sum3_high, sum3_low, w_high, w_low)
+  val (turn30 | @(new_c_high, new_c_low)) = $AR.rotr(2, b_high, b_low)
+in (SHA1_ROUND_mk(turn, function, add1, add2, add3, add4, turn30)
+    | @(new_a_high, new_a_low, new_c_high, new_c_low)) end
+
+(* SHA1_ROUNDS(msg, at, t, init, state): after t rounds of the block of 64
+   bytes from `at` of the cells msg, begun with the working variables init,
+   the working variables are state (section 6.1.2 step 3) *)
+#pub dataprop SHA1_ROUNDS($A.cells, int, int, five_words, five_words) =
+  | {msg:$A.cells}{at:nat}{init:five_words}
+    SHA1_ROUNDS_zero(msg, at, 0, init, init)
+  | {msg:$A.cells}{at,t:nat | t < 80}{init:five_words}
+    {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,k_high,k_low,w_high,w_low,new_a_high,new_a_low,new_c_high,new_c_low:nat}
+    SHA1_ROUNDS_next(msg, at, t+1, init,
+      five(w32(new_a_high, new_a_low), w32(a_high, a_low), w32(new_c_high, new_c_low),
+           w32(c_high, c_low), w32(d_high, d_low))) of (
+      SHA1_ROUNDS(msg, at, t, init, five(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low))),
+      SHA1_K(t, k_high, k_low),
+      SCHEDULE(sha1_kind(), msg, at, t, w_high, w_low),
+      SHA1_ROUND(t, w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_c_high, new_c_low)))
+
+(* SHA1_BLOCK(msg, at, before, after): the block of 64 bytes from `at` of msg,
+   hashed onto the chaining value `before` (section 6.1.2), makes `after`: the
+   80 rounds begun with the working variables a to e set to `before`, and
+   each working variable at the end added (modulo 2 to the 32) to the same
+   word of `before` (step 4) *)
+#pub dataprop SHA1_BLOCK($A.cells, int, five_words, five_words) =
+  | {msg:$A.cells}{at:nat}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,end_a_high,end_a_low,end_b_high,end_b_low,end_c_high,end_c_low,end_d_high,end_d_low,end_e_high,end_e_low,next_h0_high,next_h0_low,next_h1_high,next_h1_low,next_h2_high,next_h2_low,next_h3_high,next_h3_low,next_h4_high,next_h4_low:nat}
+    SHA1_BLOCK_mk(msg, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low)), five(w32(next_h0_high, next_h0_low), w32(next_h1_high, next_h1_low), w32(next_h2_high, next_h2_low), w32(next_h3_high, next_h3_low), w32(next_h4_high, next_h4_low))) of (
+      SHA1_ROUNDS(msg, at, 80, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low)), five(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low))),
+      $AR.ADD32(h0_high, h0_low, end_a_high, end_a_low, next_h0_high, next_h0_low),
+      $AR.ADD32(h1_high, h1_low, end_b_high, end_b_low, next_h1_high, next_h1_low),
+      $AR.ADD32(h2_high, h2_low, end_c_high, end_c_low, next_h2_high, next_h2_low),
+      $AR.ADD32(h3_high, h3_low, end_d_high, end_d_low, next_h3_high, next_h3_low),
+      $AR.ADD32(h4_high, h4_low, end_e_high, end_e_low, next_h4_high, next_h4_low))
+
+(* The 80 rounds, each with the proof that it is the standard's *)
+fun _rounds1 {lw:agz}{words,msg:$A.cells}{at:nat}{init:five_words}{t:nat | t <= 80}
+  {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536} .<80 - t>.
+  (schedule: !$A.barr(lw, 320, words), listed: SCHEDULE_ARRAY(sha1_kind(), words, msg, at, 80), t: int t,
+   a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low,
+   done: SHA1_ROUNDS(msg, at, t, init, five(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low))))
+  : [end_a_high,end_a_low,end_b_high,end_b_low,end_c_high,end_c_low,end_d_high,end_d_low,end_e_high,end_e_low:nat | end_a_high < 65536; end_a_low < 65536; end_b_high < 65536; end_b_low < 65536; end_c_high < 65536; end_c_low < 65536; end_d_high < 65536; end_d_low < 65536; end_e_high < 65536; end_e_low < 65536]
+    (SHA1_ROUNDS(msg, at, 80, init, five(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low))) | @(int end_a_high, int end_a_low, int end_b_high, int end_b_low, int end_c_high, int end_c_low, int end_d_high, int end_d_low, int end_e_high, int end_e_low)) =
+  if t >= 80 then (done | @(a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low))
+  else let
+    val (constant | @(k_high, k_low)) = sha1_k(t)
+    val (word | @(w_high, w_low)) = _scheduled(schedule, listed, t)
+    val (step | @(new_a_high, new_a_low, new_c_high, new_c_low)) =
+      sha1_round(t, a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, k_high, k_low, w_high, w_low)
+  in _rounds1(schedule, listed, t + 1,
+       new_a_high, new_a_low, a_high, a_low, new_c_high, new_c_low, c_high, c_low, d_high, d_low,
+       SHA1_ROUNDS_next(done, constant, word, step)) end
+
+(* The block of 64 bytes from `at` of the message hashed onto the chaining
+   value in the array (20 bytes, five words, at 0), the new chaining value
+   written there, with the proof that it is the standard's *)
+#pub fun sha1_compress {lm:agz}{nm:nat}{msg:$A.cells}{at:nat | at + 64 <= nm}
+  {lw:agz}{words:$A.cells}{lc:agz}{chain:$A.cells}
+  {h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536}
+  (message: !$A.barr(lm, nm, msg), at: int at, schedule: $A.barr(lw, 320, words),
+   chaining: $A.barr(lc, 20, chain), have: FIVE_AT(chain, 0, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))))
+  : [words2:$A.cells][chain2:$A.cells][next_h0_high,next_h0_low,next_h1_high,next_h1_low,next_h2_high,next_h2_low,next_h3_high,next_h3_low,next_h4_high,next_h4_low:nat | next_h0_high < 65536; next_h0_low < 65536; next_h1_high < 65536; next_h1_low < 65536; next_h2_high < 65536; next_h2_low < 65536; next_h3_high < 65536; next_h3_low < 65536; next_h4_high < 65536; next_h4_low < 65536]
+    (SHA1_BLOCK(msg, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low)), five(w32(next_h0_high, next_h0_low), w32(next_h1_high, next_h1_low), w32(next_h2_high, next_h2_low), w32(next_h3_high, next_h3_low), w32(next_h4_high, next_h4_low))),
+     FIVE_AT(chain2, 0, five(w32(next_h0_high, next_h0_low), w32(next_h1_high, next_h1_low), w32(next_h2_high, next_h2_low), w32(next_h3_high, next_h3_low), w32(next_h4_high, next_h4_low)))
+     | @($A.barr(lw, 320, words2), $A.barr(lc, 20, chain2)))
+
+implement sha1_compress {lm}{nm}{msg}{at}{lw}{words}{lc}{chain}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low}
+  (message, at, schedule, chaining, have) = let
+  val (listed | schedule) = schedule_sha1(message, at, schedule)
+  val @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low) = five_get(chaining, 0, have)
+  val (rounds | @(end_a_high, end_a_low, end_b_high, end_b_low, end_c_high, end_c_low, end_d_high, end_d_low, end_e_high, end_e_low)) = _rounds1(schedule, listed, 0,
+    h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, SHA1_ROUNDS_zero())
+  val (add0 | @(next_h0_high, next_h0_low)) = $AR.add32(h0_high, h0_low, end_a_high, end_a_low)
+  val (add1 | @(next_h1_high, next_h1_low)) = $AR.add32(h1_high, h1_low, end_b_high, end_b_low)
+  val (add2 | @(next_h2_high, next_h2_low)) = $AR.add32(h2_high, h2_low, end_c_high, end_c_low)
+  val (add3 | @(next_h3_high, next_h3_low)) = $AR.add32(h3_high, h3_low, end_d_high, end_d_low)
+  val (add4 | @(next_h4_high, next_h4_low)) = $AR.add32(h4_high, h4_low, end_e_high, end_e_low)
+  val (written | chaining) = five_set(chaining, 0, next_h0_high, next_h0_low, next_h1_high, next_h1_low, next_h2_high, next_h2_low, next_h3_high, next_h3_low, next_h4_high, next_h4_low)
+in (SHA1_BLOCK_mk(rounds, add0, add1, add2, add3, add4), written | @(schedule, chaining)) end
+
+(* ============================================================
    Round constants (FIPS 180-4, section 4.2.2)
    ============================================================ *)
 
