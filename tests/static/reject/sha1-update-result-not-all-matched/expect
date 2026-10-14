@@ -1,0 +1,1 @@
+sha1-update-result-not-all-matched.bats: 799(line=14, offs=3) -- 894(line=15, offs=38): error(3): pattern match is nonexhaustive:

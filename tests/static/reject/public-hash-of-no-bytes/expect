@@ -1,0 +1,1 @@
+public-hash-of-no-bytes.bats: 453(line=8, offs=19) -- 454(line=8, offs=20): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(0)

@@ -1,0 +1,8 @@
+[package]
+name = "public-hash-of-no-bytes"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

@@ -39,11 +39,14 @@ for d in "$ROOT"/tests/dynamic/*/; do
   n=$(basename "$d"); w="$TMP/w-$n"
   cp -R "$d" "$w"
   RUN=""
+  # A test whose valgrind run is slow names its limit in seconds in `timeout`.
+  LIM="$LIMIT"
+  if [ -n "$LIMIT" ] && [ -f "$d/timeout" ]; then LIM="timeout $(cat "$d/timeout")"; fi
   [ -f "$d/no-leaks" ] && RUN="valgrind -q --leak-check=full --errors-for-leak-kinds=definite,indirect --error-exitcode=1"
   # --dev: the checkout uploads as a dev version, which bats lock skips
   # without it (as the Rust bats does).
   if (cd "$w" && bats lock --dev --repository "$TMP/repo" && bats build --only debug --only native --repository "$TMP/repo") > "$TMP/$n.log" 2>&1 \
-     && (cd "$w" && $LIMIT $RUN "./dist/debug/$n") > "$TMP/$n.out" 2>&1 \
+     && (cd "$w" && $LIM $RUN "./dist/debug/$n") > "$TMP/$n.out" 2>&1 \
      && { [ ! -f "$d/expected" ] || diff -u "$d/expected" "$TMP/$n.out"; }; then
     echo "ok   $n"
   else

@@ -1,0 +1,1 @@
+sha1-context-used-after-update.bats: 961(line=15, offs=42) -- 968(line=15, offs=49): error(3): the linear dynamic variable [context

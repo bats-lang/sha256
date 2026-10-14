@@ -1,0 +1,8 @@
+[package]
+name = "public-finish-twice"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

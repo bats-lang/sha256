@@ -1,0 +1,8 @@
+[package]
+name = "public-sha1-digest-past-the-array"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

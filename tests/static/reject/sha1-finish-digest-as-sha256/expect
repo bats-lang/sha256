@@ -1,0 +1,1 @@
+sha1-finish-digest-as-sha256.bats: 663(line=10, offs=4) -- 677(line=10, offs=18): error(3): the dynamic expression cannot be assigned the type [S2Eexi

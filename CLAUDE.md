@@ -70,10 +70,8 @@ beyond the first count leaves them) are its lemmas. `schedule_sha256` (64
 words, a 256-byte array) and `schedule_sha1` (80 words, 320 bytes) fill the
 array from the message block and return `SCHEDULE_ARRAY(..., 64)` or
 `(..., 80)`: every word of the array is the standard's. The proofs are
-about the halves-based functions (single-bit rotations, arith); the digest
-does not run them yet (stage E of the plan, which needs the fast rotations
-first), so `hash` and `sha1_digest` still compute their schedules with `uint`
-and are tested, not proved.
+about the halves-based functions, and since stage E the digest runs them
+(`hash` and `sha1_digest` are the proved code, below).
 
 `tests/dynamic/schedule` runs both schedules on the standard's padded
 blocks ("abc", the 448-bit message in two blocks) and 64 other bytes against
@@ -146,9 +144,8 @@ shift that is not the standard's, a round 64, BIG_SIGMA_0 for BIG_SIGMA_1, a
 chaining add of another word, and for SHA-1 Ch in a Parity round, the constant
 of another range, ROTR 5 for ROTL 5 and SHA-256's schedule in SHA-1's rounds;
 `accept/rounds-used` takes a round and a block's proofs.
-The padding, the fold over blocks and the digest are stage D (below). `hash`,
-`update`, `finish` and `sha1_digest` are still the old unproved ones (stage E
-switches them to the halves).
+The padding, the fold over blocks and the digest are stage D, and the public
+functions running them stage E (below).
 
 ## The padding, the fold and the digest are proved (bats-lang/sha256#29, stage D)
 
@@ -216,9 +213,8 @@ chaining)` for the blocks hashed, `HELD(hashed_bytes, block_cells, fill,
 message)` for the bytes in the block, so the message is the blocks hashed
 followed by the buffer, `COUNTED` for its length (fill the same index), `LIST`
 for its shape. `sha256_digest_proved(data, len, out)` and `sha1_digest_proved`
-are the one-shot proved versions, beside the unproved `hash` and `sha1_digest`
-(whose types are unchanged; stage E switches their code to the proved
-functions' halves and fast rotations): `HELD(cnil, data_cells, len, message)`,
+are the one-shot proved versions (the public functions run the incremental
+ones, stage E): `HELD(cnil, data_cells, len, message)`,
 `DIGEST256(message, chaining)` (`DIGEST1`) and the output's proof. They take
 len under 2^16: see the solver note. Larger inputs go through the incremental
 API in pieces of any size.
@@ -260,3 +256,87 @@ bound lemmas stated one too small; it accepts the API as a caller reads it
 (two pieces make one message, the one-shots), the length corners, and the
 count and zero-count constructors.
 
+## The public functions are the proved ones (bats-lang/sha256#29, stage E)
+
+`hash`, `init`, `update`, `finish` and `sha1_digest` have the types they had
+(`ctx` is still one type, now holding a `ctx256(message)` of some message), and
+their code is the proved code: the old `uint` implementation (word functions,
+round constants, `_compress`, the padding, the hex output, a separate SHA-1) is
+deleted, nothing used it. The proofs of stages A to D are therefore about the
+code the digest runs, with the halves-based functions on arith's `rotr_fast`
+(O(1) rotations proved against `ROTR`; the single-bit `rotr` takes 31 steps).
+
+* **How the old API reaches the proved one.** A caller's array is array's `arr`
+  (or `borrow`), whose cells the types know nothing of, and the proved functions
+  read a `barr`, whose cells they know. So a call copies its bytes, 4096 at a
+  time, into a `barr` of the package's own (`_copy_arr`, `_copy_borrow`), feeds
+  them to `update256_proved` (`update1_proved`), and after `finish256_proved`
+  (`finish1_proved`) copies the digits or the 20 bytes into the caller's array
+  (`_copy_out`). That glue is not proved: it is tested (`tests/dynamic/sizes`,
+  `vectors`, `sha1`). Everything between (padding, blocks, schedule, rounds,
+  chaining value, hex digits) is the code `DIGEST256` and `DIGEST1` describe.
+  An array package function giving a `barr` view of a borrowed `arr` would
+  remove the copy (and the glue): not made, the copy costs a byte-wise loop
+  against 64 rounds a block.
+* **Sizes.** `update` and `sha1_digest` feed the proved incremental API in pieces
+  of any total size: a message is not limited to the 2^16 bytes the one-shot
+  `sha256_digest_proved` and `sha1_digest_proved` take (those stay, proved, and
+  the public functions do not use them: one code path). SHA-1 had only the
+  one-shot proved version, so stage E adds its incremental one beside it,
+  `ctx1(message)`, `init1_proved`, `update1_proved` (`Updated1 | Stopped1`) and
+  `finish1_proved` (`DIGEST1`, `FIVE_AT`): the same functions as SHA-256's with
+  the five-word chaining value and a 320-byte schedule, over the same `HELD`,
+  `COUNTED` and padding proofs. A message that reaches its largest length (about
+  2^45 bytes) takes no more bytes and its digest is of the bytes taken; the old
+  code counted modulo 2^64 bits and went on. No caller reaches it.
+* **What blocks nothing.** `ctx` was a datavtype of its arrays and counts and
+  `update` took `!ctx`; it still does: `update` moves the proved context out of
+  the `ctx_mk` and puts the next one (a different message in the type) back, so
+  the signature, and every caller (quire's `init`/`update`/`finish`, `hash`,
+  `sha1_digest` for the font key), is unchanged.
+* **Measured** (1 MiB, this machine, the `perf` test; the old code is the
+  unproved `uint` one at stage D, 6cbd834): debug build, SHA-256 296 ms before and
+  2790 ms after, SHA-1 194 ms before and 1128 ms after; release build, SHA-256
+  8.1 ms before and 229 ms after, SHA-1 4.0 ms before and 107 ms after. With the
+  single-bit `rotr` the same code took 9357 and 4770 ms (debug), 601 and 372 ms
+  (release): `rotr_fast` is 3.4 times faster, and the proved code is still 28
+  times slower than the unproved in release. A callgrind profile of the release
+  build: the rotations (`_rotr_stage_*`, `rotr_fast`) 30% of the instructions,
+  the single-bit `shr` loop (the sigmas' `>> 3` and `>> 10`) 11%, then `add32`,
+  `sha256_round` and `barr_get`, called across modules (no inlining between the
+  packages' C files). The way down is in arith (a `shr_fast`, and rotations by a
+  constant without the stages), not here. `tests/dynamic/perf` fails a debug
+  build over 6 s for SHA-256 or 3 s for SHA-1 on 1 MiB (the single-bit rotations
+  would take 9.4 and 4.8 s on this machine): a budget that catches the
+  single-bit rotations, not one comparable to the unproved code.
+
+**What is proved and what is tested only.** Proved (by the compiler, no `praxi`,
+no `assume`, no `$UNSAFE`): the word functions, the schedules, the rounds and the
+chaining add, the padding and the length, the fold over the blocks, the digest
+and its hex digits, the incremental contexts of both hashes, each against the
+FIPS 180-4 definitions, in terms of arith's relations on 16-bit halves. Tested
+only: the round constants and the initial values (`SHA256_K`, `SHA1_K`,
+`SHA256_IV`, `SHA1_IV` are the standard's tables stated once; that each word is
+what the definition says needs integers of 2^100 and the solver is 32-bit: issue
+#31), the arrays' primitives in the array package (`barr_get`, `barr_set`, ...:
+array's CLAUDE.md), arith's C operators, the copy glue above, and the
+equivalence of the halves-based functions to 32-bit arithmetic wherever arith
+states it (`and_proved`, the shifts: arith's tests).
+
+`tests/dynamic/sizes` hashes 4095, 4096, 4097, 8191, 8192, 8193, 65535, 65536 and
+65537 bytes with `hash` and `sha1_digest`, and an `update` of a prefix (0, 4100
+of 5000, all) against `hashlib` (the edges of the 4096-byte piece and of the
+one-shot limit); `vectors`, `sha1` and the stage D tests run unchanged. Under valgrind `vectors` takes 5m45s (it hashed in 20 s before: the 2 MB incremental case), more than the harness's 300 s, so a test may name its limit in seconds in a `timeout` file (`tests/dynamic/run.sh`; `vectors` 1500, `sizes` 900).
+`tests/dynamic/perf` is the budget above. `tests/static` rejects a context
+finished twice or dropped, an update or a SHA-1 digest of more bytes than the
+array holds, a hash of no bytes, a finish into 20 bytes, a SHA-1 into 64, a
+SHA-256 context given to the SHA-1 update, a SHA-1 digest of another message or
+claimed as SHA-256's, a SHA-1 context used twice, a SHA-1 update's result not
+matched completely, more cells than the array holds, and a Stopped1 claimed to
+hold all the bytes; it accepts the public API as a caller reads it and the SHA-1
+incremental API. Stage E adds no lemma, so there is no new false variant to
+probe; the glue's arithmetic (`from + count <= nd`, `count <= 4096`) is checked
+by the first of those rejections.
+
+Issue #29's "done when" (the digest's own code is the proved code) is met for
+the code; what is left is the performance (above) and the round constants (#31).
