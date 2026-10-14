@@ -1,0 +1,8 @@
+[package]
+name = "word-set-overlapping"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""
