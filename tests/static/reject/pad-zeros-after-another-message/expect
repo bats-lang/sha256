@@ -1,0 +1,1 @@
+pad-zeros-after-another-message.bats: 1041(line=13, offs=49) -- 1048(line=13, offs=56): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(other

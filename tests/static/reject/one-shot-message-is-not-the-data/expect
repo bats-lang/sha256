@@ -1,0 +1,1 @@
+one-shot-message-is-not-the-data.bats: 836(line=11, offs=4) -- 848(line=11, offs=16): error(3): the dynamic expression cannot be assigned the type [S2Eexi(message

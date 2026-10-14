@@ -1,0 +1,1 @@
+bitlen-of-64-bytes-is-not-0x0300.bats: 482(line=10, offs=7) -- 495(line=10, offs=20): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(byte6

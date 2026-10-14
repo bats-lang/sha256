@@ -1,0 +1,8 @@
+[package]
+name = "one-shot-more-than-the-array-holds"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

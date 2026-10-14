@@ -1,0 +1,1 @@
+digest-of-another-message.bats: 687(line=10, offs=4) -- 701(line=10, offs=18): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(message

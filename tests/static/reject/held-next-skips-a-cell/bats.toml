@@ -1,0 +1,8 @@
+[package]
+name = "held-next-skips-a-cell"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

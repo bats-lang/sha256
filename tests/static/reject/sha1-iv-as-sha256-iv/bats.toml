@@ -1,0 +1,8 @@
+[package]
+name = "sha1-iv-as-sha256-iv"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

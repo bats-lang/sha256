@@ -1,0 +1,8 @@
+[package]
+name = "hexof-digits-swapped"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

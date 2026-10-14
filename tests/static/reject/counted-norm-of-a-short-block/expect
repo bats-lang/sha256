@@ -1,0 +1,1 @@
+counted-norm-of-a-short-block.bats: 475(line=8, offs=30) -- 492(line=8, offs=47): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(64); S2Eintinf(63)))

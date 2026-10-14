@@ -1,0 +1,1 @@
+pad-long-one-zero-too-many.bats: 397(line=7, offs=54) -- 397(line=7, offs=54): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(==); S2EVar

@@ -1,0 +1,8 @@
+[package]
+name = "digest-of-another-message"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

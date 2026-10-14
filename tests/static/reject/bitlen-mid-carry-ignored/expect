@@ -1,0 +1,1 @@
+bitlen-mid-carry-ignored.bats: 479(line=10, offs=7) -- 491(line=10, offs=19): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(byte5

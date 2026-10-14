@@ -40,7 +40,8 @@ proof names 2 to the 32) and return the proof of the relation `CH`, `MAJ`,
 runs them on the published trace of SHA-256 over "abc". The digest
 functions (`hash`, `update`, `finish`, `sha1_digest`) are still written
 and tested, not proved: the schedule, the rounds, the padding and the
-digest are stages B to D of the plan in the issue.
+digest are stages B to D of the plan in the issue (done; the proved
+versions are `sha256_digest_proved`, `update256_proved`, ..., beside them).
 
 ## Words in an array and the message schedules are proved (bats-lang/sha256#29, stage B)
 
@@ -145,5 +146,117 @@ shift that is not the standard's, a round 64, BIG_SIGMA_0 for BIG_SIGMA_1, a
 chaining add of another word, and for SHA-1 Ch in a Parity round, the constant
 of another range, ROTR 5 for ROTL 5 and SHA-256's schedule in SHA-1's rounds;
 `accept/rounds-used` takes a round and a block's proofs.
-Digest functions are still the old unproved ones (stage E switches them to the
-halves), and padding and the fold over blocks are stage D.
+The padding, the fold over blocks and the digest are stage D (below). `hash`,
+`update`, `finish` and `sha1_digest` are still the old unproved ones (stage E
+switches them to the halves).
+
+## The padding, the fold and the digest are proved (bats-lang/sha256#29, stage D)
+
+A message is a sequence of cells (array's `cells`; the cell values are its
+bytes), and the proofs about it never name an array. `SNOC(message, value,
+message_after)` puts a byte after a message; `HELD(base, cells, n, message)`
+says `message` is `base` followed, byte by byte, by the first n cells of
+`cells` (`HELD_zero`, `HELD_next` reads cell n with array's `NTH`): it is how
+bytes reach a message from the array a piece is given in and from the block
+being filled, so a piece's message is its cells and nothing else.
+`LIST(message)` (a finite sequence, with a size index for the lemmas' metric)
+is what lets a byte be put after a message; `snoc_list` and `held_frame`
+(setting a cell the held bytes do not reach leaves them) are the lemmas, each
+a private recursive `prfun` with a termination metric and a public wrapper.
+
+**The length is digits.** The solver is 32-bit, so a length is not an integer:
+`COUNTED(message, count_top, count_high, count_blocks, fill)` is n = 2^32 *
+count_top + 2^16 * count_high + 64 * count_blocks + fill, counted a byte at a
+time (`COUNTED_byte`, fill under 64) and a full block at a time (`COUNTED_norm`
+by `NORM`: the carry into the next digit). count_top is under 8192, so a message
+is under 2^45 bytes and the bit length is under 2^48 (the top two of the
+padding's eight length bytes are 0). `BITLEN` is that length times 8 as its
+eight bytes, three limbs each of its own small relation (`BITLEN_LOW`, `_MID`,
+`_HIGH`: a limb is two bytes and hands a carry under 8 to the next) with
+`bitlen_low`, `bitlen_mid`, `bitlen_high` (divisions by 128, 8192 and 256 of a
+number under 65536 each) and `bitlen_bytes` composing them.
+
+**The padding** (`PAD(message, ..., padded)`, FIPS 180-4 5.1.1, SHA-256 and
+SHA-1 alike) is the message, the byte 128 (`SNOC(message, 128, marked)`),
+`zeros` zero bytes (`ZSNOC`) with `ZCOUNT(fill, zeros)` the smallest number
+that makes the length a multiple of 64 bytes (fill <= 55: 55 - fill; else 119 -
+fill, so a second block), and the eight length bytes (`LENSNOC`), each a
+`SNOC`. It is written in place in the block being filled (`pad_short`, or
+`pad_long_first` and, once that block is hashed, `pad_long_second`, which
+writes the rest into the same array), so no copy has to be followed: each byte
+written is a `SNOC` of the message and a `HELD` of the cells set
+(`held_frame` and array's `setc_nth_same`).
+
+**The fold and the digest.** `HASHED256(hashed_bytes, chaining)` is the
+initial value (`SHA256_IV`, `HASHED256_start`) and then each block: 64 bytes put
+after the ones before (`HELD(hashed_bytes, cells, 64, hashed_after)`) and
+compressed (stage C's `SHA256_BLOCK(cells, 0, chaining, chaining_after)`).
+`DIGEST256(message, chaining)` is `PAD` of the message and `HASHED256` of the
+padded message (the very `padded`), so a digest of a message is the hash of
+the padded message and of nothing else; `HASHED1` and `DIGEST1` are SHA-1's.
+`SHA256_IV` is the standard's table, stated and tested (`tests/dynamic/
+initial_value` derives it by integer square roots), not proved against its
+definition, as the round constants (sha256 issue 31); SHA-1's five words are
+the standard's own.
+
+**The incremental API** (`ctx256(message)`, linear and indexed by the message
+fed so far): `init256_proved` (the empty message), `update256_proved(context,
+data, len)` (the first len cells of `data` put after the message one byte at a
+time into the block being filled, a full block hashed; it returns `Updated256`
+with `HELD(message, data_cells, len, message_after)` and the next context, or
+`Stopped256` when the message reaches its largest length, about 2^45 bytes,
+and only the first i bytes were taken, as HACL*'s streaming API answers a length
+over its maximum with an error code) and `finish256_proved(context, out)` (the
+padding written in the block, the last block or two hashed, the chaining value
+written as 64 lowercase hex digits; it returns `DIGEST256(message, chaining)`
+and `EIGHT_HEX(out_cells, chaining)`: `HEXOF` says digit pair i of the output is
+the hex of byte i of the 32 bytes that hold the chaining value, `EIGHT_AT`).
+The context's invariant is the one the issue states: `HASHED256(hashed_bytes,
+chaining)` for the blocks hashed, `HELD(hashed_bytes, block_cells, fill,
+message)` for the bytes in the block, so the message is the blocks hashed
+followed by the buffer, `COUNTED` for its length (fill the same index), `LIST`
+for its shape. `sha256_digest_proved(data, len, out)` and `sha1_digest_proved`
+are the one-shot proved versions, beside the unproved `hash` and `sha1_digest`
+(whose types are unchanged; stage E switches their code to the proved
+functions' halves and fast rotations): `HELD(cnil, data_cells, len, message)`,
+`DIGEST256(message, chaining)` (`DIGEST1`) and the output's proof. They take
+len under 2^16: see the solver note. Larger inputs go through the incremental
+API in pieces of any size.
+
+**The solver note (found by mutation, kept as the method).** The 32-bit solver
+accepted a false claim in the first version of the one-shot loop, whose context
+held `1024 * count_high + count_blocks = j` and `64 * j + fill = i` together
+(65536 * count_high once j is gone, times a bound near 2^20). No error showed
+and the context was not contradictory at the points probed: the false claim was
+`nh := 7` in a recursive call, found only by changing code and checking it was
+rejected. So the digit lengths of the one-shot loop are `count_blocks` only
+(`64 * count_blocks + fill = i`, `i <= 65535`: coefficients 64 and bounds 2^16)
+and `bitlen` is three small relations. The method that found it, which a
+change to this stage repeats: a probe (`prfn t (): [1 == 2] void = ()` after
+each `val`, which must be rejected) in every function of the stage, and a
+mutation of every arithmetic expression (an off-by-one constant, a missing
+carry, a wrong bound) which must be rejected; each public lemma and relation
+has its false variant in `tests/static/reject`. 34 mutations were rejected at
+the last run, and none of the probes (after every `val` of the stage) was accepted.
+
+`tests/dynamic/digest` prints SHA-256 of the proved incremental API in pieces
+(1, 7, 13, 64, 1000, 4097 bytes) and in one call, and SHA-1 in one call, for
+"abc", the empty message, the 448-bit message of FIPS 180-2 B.2 and lengths
+55, 56, 63, 64, 65, 119, 120, 128, 1000 and 10000 (the edges of one and of
+two padding blocks, and many blocks), against `hashlib` (`make-expected.py`,
+which asserts the published digests first); valgrind finds no leak.
+`tests/dynamic/bitlen` prints the eight length bytes at the corners of every
+digit against Python integers. `tests/static` rejects (54 fixtures) a byte
+other than the cell's put after a message, a frame over a held cell, a block
+not full or not 64 bytes hashed, a count carried at the wrong place or past
+the top, a length limb without its carry, a padding that starts with a zero,
+has a zero too few or too many, or is for the wrong message, a block hashed
+from other cells or onto another chaining value or at an offset, an initial
+value with a word changed, a digest of the unpadded message, SHA-1's taken
+for SHA-256's, a digest or hex digits of another message or chaining value,
+an update of more cells than the array holds, an update's result not matched
+completely, a context used twice, a one-shot over 2^16 bytes, and the three
+bound lemmas stated one too small; it accepts the API as a caller reads it
+(two pieces make one message, the one-shots), the length corners, and the
+count and zero-count constructors.
+

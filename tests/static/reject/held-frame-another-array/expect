@@ -1,0 +1,1 @@
+held-frame-another-array.bats: 563(line=9, offs=3) -- 589(line=9, offs=29): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(cells_after

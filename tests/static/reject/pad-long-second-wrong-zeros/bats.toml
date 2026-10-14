@@ -1,0 +1,8 @@
+[package]
+name = "pad-long-second-wrong-zeros"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""
