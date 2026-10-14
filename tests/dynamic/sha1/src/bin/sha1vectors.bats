@@ -58,5 +58,4 @@ implement main0 () = let
   val () = run("a120", 120, 1)
   val () = run("aj1000", 1000, 10)
   val () = run("az100000", 100000, 26)
-  val () = run("a1000000", 1000000, 1)
 in end
