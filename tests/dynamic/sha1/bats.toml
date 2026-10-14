@@ -1,0 +1,7 @@
+[package]
+name = "sha1"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"sha256" = ""
