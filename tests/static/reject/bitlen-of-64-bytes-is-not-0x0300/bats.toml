@@ -1,0 +1,8 @@
+[package]
+name = "bitlen-of-64-bytes-is-not-0x0300"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

@@ -1,0 +1,8 @@
+[package]
+name = "one-shot-message-is-not-the-data"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

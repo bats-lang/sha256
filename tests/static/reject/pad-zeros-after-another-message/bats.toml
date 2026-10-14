@@ -1,0 +1,8 @@
+[package]
+name = "pad-zeros-after-another-message"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

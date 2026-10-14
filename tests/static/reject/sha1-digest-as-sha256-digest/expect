@@ -1,0 +1,1 @@
+sha1-digest-as-sha256-digest.bats: 620(line=8, offs=144) -- 628(line=8, offs=152): error(2): the static expression is of the sort [S2RTbas(S2RTBASdef(five_words))] but it is expected to be of the sort [S2RTbas(S2RTBASdef(eight_words))].

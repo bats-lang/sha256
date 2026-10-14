@@ -1,0 +1,8 @@
+[package]
+name = "pad-short-for-56"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

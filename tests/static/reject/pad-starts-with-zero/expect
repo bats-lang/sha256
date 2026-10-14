@@ -1,0 +1,1 @@
+pad-starts-with-zero.bats: 1028(line=13, offs=40) -- 1035(line=13, offs=47): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(0); S2Eintinf(128)))

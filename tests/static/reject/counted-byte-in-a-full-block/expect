@@ -1,0 +1,1 @@
+counted-byte-in-a-full-block.bats: 557(line=9, offs=20) -- 557(line=9, offs=20): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(<); S2EVar

@@ -1,0 +1,8 @@
+[package]
+name = "pad-short-zeros-for-a-long-message"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

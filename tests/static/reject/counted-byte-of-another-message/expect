@@ -1,0 +1,1 @@
+counted-byte-of-another-message.bats: 570(line=9, offs=30) -- 574(line=9, offs=34): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(other

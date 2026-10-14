@@ -1,0 +1,8 @@
+[package]
+name = "counted-byte-of-another-message"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

@@ -1,0 +1,1 @@
+pad-short-zeros-for-a-long-message.bats: 447(line=8, offs=54) -- 447(line=8, offs=54): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(<=); S2EVar

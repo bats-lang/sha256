@@ -1,0 +1,7 @@
+[package]
+name = "digest"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"sha256" = ""

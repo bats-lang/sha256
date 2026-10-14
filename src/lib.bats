@@ -1397,9 +1397,10 @@ in finish(c, out) end
 (* ============================================================
    SHA-1 (FIPS 180-4, section 6.1), beside SHA-256
 
-   Written, not proved: its tests are known answers (tests/dynamic/sha1),
-   and the proof against a specification relation checked by the compiler
-   is owed (see the issue filed for it). SHA-1 is not fit to keep
+   Written, not proved: its tests are known answers (tests/dynamic/sha1).
+   The proved version is sha1_digest_proved (below, stage D), which takes
+   an array whose cells the types know and gives DIGEST1; this one waits
+   for stage E to run the proved code. SHA-1 is not fit to keep
    anything secret; it is here for the one thing EPUB asks of it, the key
    of the IDPF font obfuscation (quire#562).
    ============================================================ *)
@@ -1542,3 +1543,739 @@ fn _sha1_digest {l:agz}{n:pos}{data_len:pos | data_len <= n}{lo:agz}
 in _sha1_release(padding, block, w) end
 
 implement sha1_digest (data, data_len, out) = _sha1_digest(data, data_len, out)
+
+(* ============================================================
+   Messages as sequences of bytes, and the padding (FIPS 180-4,
+   sections 5.1.1 and 5.1.2), proved (bats-lang/sha256#29, stage D)
+
+   A message is a sequence of cells (array's `cells`, whose cell values
+   are the bytes). `SNOC(message, value, message_after)` says message_after is
+   message with the byte `value` after it. `HELD(base, cells, n, message)`
+   says message is `base` followed, one byte at a time, by the first n cells
+   of `cells`: it is how bytes reach a message from an array (a piece given
+   to update, the block being filled), and it names no array but the cells it
+   reads. `LIST(message)` says message is a finite sequence, which is what
+   lets a byte be put after it.
+   ============================================================ *)
+
+#pub dataprop SNOC($A.cells, int, $A.cells) =
+  | {value:int} SNOC_nil($A.cnil(), value, $A.ccons(value, $A.cnil()))
+  | {head,value:int}{cells,cells_after:$A.cells} SNOC_cons($A.ccons(head, cells), value, $A.ccons(head, cells_after)) of SNOC(cells, value, cells_after)
+
+#pub dataprop LISTN($A.cells, int) =
+  | LISTN_nil($A.cnil(), 0)
+  | {head:int}{cells:$A.cells}{size:nat} LISTN_cons($A.ccons(head, cells), size + 1) of LISTN(cells, size)
+
+#pub dataprop LIST($A.cells) =
+  | {message:$A.cells}{size:nat} LIST_mk(message) of LISTN(message, size)
+
+(* the empty message is a sequence *)
+#pub prfun empty_is_a_list (): LIST($A.cnil())
+
+primplement empty_is_a_list () = LIST_mk(LISTN_nil())
+
+#pub dataprop HELD($A.cells, $A.cells, int, $A.cells) =
+  | {base,cells:$A.cells} HELD_zero(base, cells, 0, base)
+  | {base,cells,message,message_after:$A.cells}{n:nat}{value:int}
+    HELD_next(base, cells, n + 1, message_after) of (HELD(base, cells, n, message), $A.NTH(cells, n, value), SNOC(message, value, message_after))
+
+(* A byte can be put after any message *)
+#pub prfun snoc_list {message:$A.cells}{value:int} (LIST(message)): [message_after:$A.cells] (SNOC(message, value, message_after), LIST(message_after))
+
+prfun _snoc_list {message:$A.cells}{value:int}{size:nat} .<size>.
+  (listed: LISTN(message, size)): [message_after:$A.cells] (SNOC(message, value, message_after), LISTN(message_after, size + 1)) =
+  case+ listed of
+  | LISTN_nil() => (SNOC_nil(), LISTN_cons(LISTN_nil()))
+  | LISTN_cons(rest) => let
+      prval (snoc, longer) = _snoc_list{..}{value}(rest)
+    in (SNOC_cons(snoc), LISTN_cons(longer)) end
+
+primplement snoc_list {message}{value} (list) = let
+  prval LIST_mk(listed) = list
+  prval (snoc, longer) = _snoc_list{message}{value}(listed)
+in (snoc, LIST_mk(longer)) end
+
+(* Setting a cell the held bytes do not reach leaves them as they were *)
+#pub prfun held_frame {base,cells,cells_after,message:$A.cells}{n,i:nat | n <= i}{value:int}
+  (HELD(base, cells, n, message), $A.SETC(cells, i, value, cells_after)): HELD(base, cells_after, n, message)
+
+prfun _held_frame {base,cells,cells_after,message:$A.cells}{n,i:nat | n <= i}{value:int} .<n>.
+  (held: HELD(base, cells, n, message), set: $A.SETC(cells, i, value, cells_after)): HELD(base, cells_after, n, message) =
+  case+ held of
+  | HELD_zero() => HELD_zero()
+  | HELD_next(before, cell, snoc) =>
+      HELD_next(_held_frame(before, set), $A.setc_nth_other(set, cell), snoc)
+
+primplement held_frame {base,cells,cells_after,message}{n,i}{value} (held, set) = _held_frame(held, set)
+
+(* ============================================================
+   The length of a message, in digits, and the padding
+
+   The solver is 32-bit, so a message's length is not one integer: it is
+   (count_top, count_high, count_blocks, fill) for n = 2 to the 32 *
+   count_top + 2 to the 16 * count_high + 64 * count_blocks + fill, with
+   fill the bytes in the block being filled (fill = 64 while that block is
+   full and not yet hashed, then it is counted anew by NORM), count_blocks
+   under 1024 (so 64 * count_blocks + fill is the low 16 bits), count_high
+   under 65536 and count_top under 8192: a message of under 2 to the 45
+   bytes, whose length in bits is under 2 to the 48, so the 64-bit length of
+   the padding has its top two bytes zero.
+   ============================================================ *)
+
+(* NORM: a full block (fill = 64) is hashed, and the count carries into the
+   next digit: the blocks, then count_high, then count_top *)
+#pub dataprop NORM(int, int, int, int, int, int, int, int) =
+  | {count_top,count_high:nat}{count_blocks:nat | count_blocks + 1 < 1024} NORM_block(count_top, count_high, count_blocks, 64, count_top, count_high, count_blocks + 1, 0)
+  | {count_top,count_high:nat | count_high + 1 < 65536} NORM_carry(count_top, count_high, 1023, 64, count_top, count_high + 1, 0, 0)
+  | {count_top:nat | count_top + 1 < 8192} NORM_carry2(count_top, 65535, 1023, 64, count_top + 1, 0, 0, 0)
+
+(* COUNTED(message, count_top, count_high, count_blocks, fill): message has
+   2^32 * count_top + 2^16 * count_high + 64 * count_blocks + fill bytes, by
+   its bytes one at a time (COUNTED_byte), and a full block hashed (COUNTED_norm) *)
+#pub dataprop COUNTED($A.cells, int, int, int, int) =
+  | COUNTED_nil($A.cnil(), 0, 0, 0, 0)
+  | {message,message_after:$A.cells}{count_top,count_high,count_blocks,fill:nat | fill < 64}{value:int}
+    COUNTED_byte(message_after, count_top, count_high, count_blocks, fill + 1) of (COUNTED(message, count_top, count_high, count_blocks, fill), SNOC(message, value, message_after))
+  | {message:$A.cells}{count_top,count_high,count_blocks,fill,count_top_after,count_high_after,count_blocks_after,fill_after:nat}
+    COUNTED_norm(message, count_top_after, count_high_after, count_blocks_after, fill_after) of (COUNTED(message, count_top, count_high, count_blocks, fill), NORM(count_top, count_high, count_blocks, fill, count_top_after, count_high_after, count_blocks_after, fill_after))
+
+(* The length in bits is 8 * n, and n = 2^32 * count_top + 2^16 * count_high +
+   64 * count_blocks + fill, so 8 * n is three 16-bit limbs: each limb is two
+   bytes and hands a carry (under 8) to the next. The three relations are
+   small because the solver is 32-bit: each limb is its own, with its own few
+   variables, and the carries are what they share.
+
+   BITLEN_LOW(count_blocks, fill, carry_low, byte6, byte7): 8 * (64 *
+   count_blocks + fill) = 65536 * carry_low + 256 * byte6 + byte7, the low limb
+   and the carry out of it, with count_blocks = 128 * carry_low + blocks_rest
+   BITLEN_MID(count_high, carry_low, carry_mid, byte4, byte5): 8 * count_high +
+   carry_low = 65536 * carry_mid + 256 * byte4 + byte5, with count_high = 8192 *
+   carry_mid + high_rest
+   BITLEN_HIGH(count_top, carry_mid, byte2, byte3): 8 * count_top + carry_mid =
+   256 * byte2 + byte3 (under 65536 since count_top is under 8192) *)
+#pub dataprop BITLEN_LOW(int, int, int, int, int) =
+  | {count_blocks,fill,carry_low,blocks_rest,byte6,byte7:nat | count_blocks == 128*carry_low + blocks_rest; blocks_rest < 128; carry_low < 8; fill < 64; byte6 < 256; byte7 < 256; 256*byte6 + byte7 == 512*blocks_rest + 8*fill}
+    BITLEN_LOW_mk(count_blocks, fill, carry_low, byte6, byte7)
+
+#pub dataprop BITLEN_MID(int, int, int, int, int) =
+  | {count_high,carry_low,carry_mid,high_rest,byte4,byte5:nat | count_high == 8192*carry_mid + high_rest; high_rest < 8192; carry_mid < 8; carry_low < 8; byte4 < 256; byte5 < 256; 256*byte4 + byte5 == 8*high_rest + carry_low}
+    BITLEN_MID_mk(count_high, carry_low, carry_mid, byte4, byte5)
+
+#pub dataprop BITLEN_HIGH(int, int, int, int) =
+  | {count_top,carry_mid,byte2,byte3:nat | count_top < 8192; carry_mid < 8; byte2 < 256; byte3 < 256; 256*byte2 + byte3 == 8*count_top + carry_mid}
+    BITLEN_HIGH_mk(count_top, carry_mid, byte2, byte3)
+
+(* BITLEN(count_top, count_high, count_blocks, fill, byte0, ..., byte7): the
+   8 bytes, most significant first, of 8 * n, the length in bits (the top two
+   are 0: the length is under 2^48) *)
+#pub dataprop BITLEN(int, int, int, int, int, int, int, int, int, int, int, int) =
+  | {count_top,count_high,count_blocks,fill,carry_low,carry_mid,byte2,byte3,byte4,byte5,byte6,byte7:nat}
+    BITLEN_mk(count_top, count_high, count_blocks, fill, 0, 0, byte2, byte3, byte4, byte5, byte6, byte7) of (
+      BITLEN_LOW(count_blocks, fill, carry_low, byte6, byte7), BITLEN_MID(count_high, carry_low, carry_mid, byte4, byte5), BITLEN_HIGH(count_top, carry_mid, byte2, byte3))
+
+(* ZCOUNT(fill, zeros): `zeros` is the number of zero bytes after the 0x80 of
+   a message whose length is `fill` modulo 64: the smallest number with fill +
+   1 + zeros + 8 a multiple of 64 (5.1.1: the smallest k with l + 1 + k = 448
+   modulo 512, here in bytes) *)
+#pub dataprop ZCOUNT(int, int) =
+  | {fill,zeros:nat | fill <= 55; zeros == 55 - fill} ZCOUNT_short(fill, zeros)
+  | {fill,zeros:nat | 56 <= fill; fill < 64; zeros == 119 - fill} ZCOUNT_long(fill, zeros)
+
+(* ZSNOC(start, zeros, longer): longer is start with `zeros` zero bytes after it *)
+#pub dataprop ZSNOC($A.cells, int, $A.cells) =
+  | {start:$A.cells} ZSNOC_zero(start, 0, start)
+  | {start,so_far,longer:$A.cells}{zeros:nat} ZSNOC_next(start, zeros + 1, longer) of (ZSNOC(start, zeros, so_far), SNOC(so_far, 0, longer))
+
+(* LENSNOC(start, byte0, ..., byte7, grown8): grown8 is start with the bytes
+   byte0 to byte7 after it, one at a time *)
+#pub dataprop LENSNOC($A.cells, int, int, int, int, int, int, int, int, $A.cells) =
+  | {start,grown1,grown2,grown3,grown4,grown5,grown6,grown7,grown8:$A.cells}{byte0,byte1,byte2,byte3,byte4,byte5,byte6,byte7:int}
+    LENSNOC_mk(start, byte0, byte1, byte2, byte3, byte4, byte5, byte6, byte7, grown8) of (
+      SNOC(start, byte0, grown1), SNOC(grown1, byte1, grown2), SNOC(grown2, byte2, grown3), SNOC(grown3, byte3, grown4),
+      SNOC(grown4, byte4, grown5), SNOC(grown5, byte5, grown6), SNOC(grown6, byte6, grown7), SNOC(grown7, byte7, grown8))
+
+(* PAD(message, count_top, count_high, count_blocks, fill, padded): padded is
+   the message, of that length, padded (FIPS 180-4, section 5.1.1 of SHA-256
+   and of SHA-1): the byte 128 (the bit 1 and seven zeros), `zeros` zero bytes
+   (ZCOUNT) and the 64-bit big-endian length in bits (BITLEN). padded is a
+   multiple of 64 bytes long. *)
+#pub dataprop PAD($A.cells, int, int, int, int, $A.cells) =
+  | {message,marked,zeroed,padded:$A.cells}{count_top,count_high,count_blocks,fill,zeros:nat}{byte0,byte1,byte2,byte3,byte4,byte5,byte6,byte7:int}
+    PAD_mk(message, count_top, count_high, count_blocks, fill, padded) of (
+      COUNTED(message, count_top, count_high, count_blocks, fill), ZCOUNT(fill, zeros),
+      BITLEN(count_top, count_high, count_blocks, fill, byte0, byte1, byte2, byte3, byte4, byte5, byte6, byte7),
+      SNOC(message, 128, marked), ZSNOC(marked, zeros, zeroed), LENSNOC(zeroed, byte0, byte1, byte2, byte3, byte4, byte5, byte6, byte7, padded))
+
+(* The 8 bytes of the length in bits (the top two are 0), with the proof that
+   they are *)
+#pub fun bitlen_bytes {count_top,count_high,count_blocks,fill:nat | count_top < 8192; count_high < 65536; count_blocks < 1024; fill < 64}
+  (count_top: int count_top, count_high: int count_high, count_blocks: int count_blocks, fill: int fill)
+  : [byte2,byte3,byte4,byte5,byte6,byte7:nat | byte2 < 256; byte3 < 256; byte4 < 256; byte5 < 256; byte6 < 256; byte7 < 256]
+    (BITLEN(count_top, count_high, count_blocks, fill, 0, 0, byte2, byte3, byte4, byte5, byte6, byte7) | @(int byte2, int byte3, int byte4, int byte5, int byte6, int byte7))
+
+fn _split128 {number:nat} (number: int number): [quotient,remainder:nat | number == 128*quotient + remainder; remainder < 128] @(int quotient, int remainder) = let
+  val quotient = number / 128
+in @(quotient, number - 128 * quotient) end
+
+fn _split256 {number:nat} (number: int number): [quotient,remainder:nat | number == 256*quotient + remainder; remainder < 256] @(int quotient, int remainder) = let
+  val quotient = number / 256
+in @(quotient, number - 256 * quotient) end
+
+fn _split8192 {number:nat} (number: int number): [quotient,remainder:nat | number == 8192*quotient + remainder; remainder < 8192] @(int quotient, int remainder) = let
+  val quotient = number / 8192
+in @(quotient, number - 8192 * quotient) end
+
+(* The low limb of 8 * n, and the carry out of it *)
+#pub fun bitlen_low {count_blocks,fill:nat | count_blocks < 1024; fill < 64} (count_blocks: int count_blocks, fill: int fill)
+  : [carry_low,byte6,byte7:nat | carry_low < 8; byte6 < 256; byte7 < 256] (BITLEN_LOW(count_blocks, fill, carry_low, byte6, byte7) | @(int carry_low, int byte6, int byte7))
+
+implement bitlen_low {count_blocks,fill} (count_blocks, fill) = let
+  val [carry_low:int, blocks_rest:int] @(carry_low, blocks_rest) = _split128(count_blocks)
+  val [byte6:int, byte7:int] @(byte6, byte7) = _split256(512 * blocks_rest + 8 * fill)
+in (BITLEN_LOW_mk{count_blocks,fill,carry_low,blocks_rest,byte6,byte7}() | @(carry_low, byte6, byte7)) end
+
+(* The middle limb, with the carry from below, and the carry out of it *)
+#pub fun bitlen_mid {count_high,carry_low:nat | count_high < 65536; carry_low < 8} (count_high: int count_high, carry_low: int carry_low)
+  : [carry_mid,byte4,byte5:nat | carry_mid < 8; byte4 < 256; byte5 < 256] (BITLEN_MID(count_high, carry_low, carry_mid, byte4, byte5) | @(int carry_mid, int byte4, int byte5))
+
+implement bitlen_mid {count_high,carry_low} (count_high, carry_low) = let
+  val [carry_mid:int, high_rest:int] @(carry_mid, high_rest) = _split8192(count_high)
+  val [byte4:int, byte5:int] @(byte4, byte5) = _split256(8 * high_rest + carry_low)
+in (BITLEN_MID_mk{count_high,carry_low,carry_mid,high_rest,byte4,byte5}() | @(carry_mid, byte4, byte5)) end
+
+(* The high limb, with the carry from below *)
+#pub fun bitlen_high {count_top,carry_mid:nat | count_top < 8192; carry_mid < 8} (count_top: int count_top, carry_mid: int carry_mid)
+  : [byte2,byte3:nat | byte2 < 256; byte3 < 256] (BITLEN_HIGH(count_top, carry_mid, byte2, byte3) | @(int byte2, int byte3))
+
+implement bitlen_high {count_top,carry_mid} (count_top, carry_mid) = let
+  val [byte2:int, byte3:int] @(byte2, byte3) = _split256(8 * count_top + carry_mid)
+in (BITLEN_HIGH_mk{count_top,carry_mid,byte2,byte3}() | @(byte2, byte3)) end
+
+implement bitlen_bytes {count_top,count_high,count_blocks,fill} (count_top, count_high, count_blocks, fill) = let
+  val (low | @(carry_low, byte6, byte7)) = bitlen_low(count_blocks, fill)
+  val (mid | @(carry_mid, byte4, byte5)) = bitlen_mid(count_high, carry_low)
+  val (high | @(byte2, byte3)) = bitlen_high(count_top, carry_mid)
+in (BITLEN_mk(low, mid, high) | @(byte2, byte3, byte4, byte5, byte6, byte7)) end
+
+(* ============================================================
+   Writing the padding in place in the block being filled
+   ============================================================ *)
+
+(* The byte `value` put at cell i of the block, after the i bytes held *)
+fn _emit {block_loc:agz}{block_cells,base,message:$A.cells}{i:nat | i < 64}{value:nat | value < 256}
+  (block_array: $A.barr(block_loc, 64, block_cells), i: int i, value: int value, held: HELD(base, block_cells, i, message), list: LIST(message))
+  : [block_cells_after,message_after:$A.cells] (HELD(base, block_cells_after, i + 1, message_after), LIST(message_after), SNOC(message, value, message_after) | $A.barr(block_loc, 64, block_cells_after)) = let
+  val (set | block_array) = $A.barr_set(block_array, i, value)
+  prval kept = held_frame(held, set)
+  prval (snoc, listed) = snoc_list{message}{value}(list)
+in (HELD_next(kept, $A.setc_nth_same(set), snoc), listed, snoc | block_array) end
+
+(* `remaining` zero bytes put from cell i, after `zeros_so_far` zeros *)
+fun _emit_zeros {block_loc:agz}{block_cells,base,marked,message:$A.cells}{zeros_so_far:nat}{i,remaining:nat | i + remaining <= 64} .<remaining>.
+  (block_array: $A.barr(block_loc, 64, block_cells), i: int i, remaining: int remaining,
+   held: HELD(base, block_cells, i, message), list: LIST(message), zeros: ZSNOC(marked, zeros_so_far, message))
+  : [block_cells_after,message_after:$A.cells] (HELD(base, block_cells_after, i + remaining, message_after), LIST(message_after), ZSNOC(marked, zeros_so_far + remaining, message_after) | $A.barr(block_loc, 64, block_cells_after)) =
+  if remaining = 0 then (held, list, zeros | block_array)
+  else let
+    val (held_next, list_next, snoc | block_array) = _emit(block_array, i, 0, held, list)
+  in _emit_zeros(block_array, i + 1, remaining - 1, held_next, list_next, ZSNOC_next(zeros, snoc)) end
+
+(* The 8 bytes of the length at cells 56 to 63 *)
+fn _emit_length {block_loc:agz}{block_cells,base,zeroed:$A.cells}{byte2,byte3,byte4,byte5,byte6,byte7:nat | byte2 < 256; byte3 < 256; byte4 < 256; byte5 < 256; byte6 < 256; byte7 < 256}
+  (block_array: $A.barr(block_loc, 64, block_cells), held: HELD(base, block_cells, 56, zeroed), list: LIST(zeroed),
+   byte2: int byte2, byte3: int byte3, byte4: int byte4, byte5: int byte5, byte6: int byte6, byte7: int byte7)
+  : [block_cells_after,padded:$A.cells] (HELD(base, block_cells_after, 64, padded), LENSNOC(zeroed, 0, 0, byte2, byte3, byte4, byte5, byte6, byte7, padded) | $A.barr(block_loc, 64, block_cells_after)) = let
+  val (held0, listed0, snoc0 | block_array) = _emit(block_array, 56, 0, held, list)
+  val (held1, listed1, snoc1 | block_array) = _emit(block_array, 57, 0, held0, listed0)
+  val (held2, listed2, snoc2 | block_array) = _emit(block_array, 58, byte2, held1, listed1)
+  val (held3, listed3, snoc3 | block_array) = _emit(block_array, 59, byte3, held2, listed2)
+  val (held4, listed4, snoc4 | block_array) = _emit(block_array, 60, byte4, held3, listed3)
+  val (held5, listed5, snoc5 | block_array) = _emit(block_array, 61, byte5, held4, listed4)
+  val (held6, listed6, snoc6 | block_array) = _emit(block_array, 62, byte6, held5, listed5)
+  val (held7, listed7, snoc7 | block_array) = _emit(block_array, 63, byte7, held6, listed6)
+in (held7, LENSNOC_mk(snoc0, snoc1, snoc2, snoc3, snoc4, snoc5, snoc6, snoc7) | block_array) end
+
+(* A message of fill <= 55 bytes in the block being filled: the padding makes
+   the block whole (128, zeros, the length) *)
+#pub fun pad_short {block_loc:agz}{block_cells,hashed_bytes,message:$A.cells}{count_top,count_high,count_blocks,fill:nat | count_top < 8192; count_high < 65536; count_blocks < 1024; fill <= 55}
+  (block_array: $A.barr(block_loc, 64, block_cells), count_top: int count_top, count_high: int count_high, count_blocks: int count_blocks, fill: int fill,
+   held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message), counted: COUNTED(message, count_top, count_high, count_blocks, fill))
+  : [block_cells_after,padded:$A.cells] (HELD(hashed_bytes, block_cells_after, 64, padded), PAD(message, count_top, count_high, count_blocks, fill, padded) | $A.barr(block_loc, 64, block_cells_after))
+
+implement pad_short {block_loc}{block_cells,hashed_bytes,message}{count_top,count_high,count_blocks,fill} (block_array, count_top, count_high, count_blocks, fill, held, list, counted) = let
+  val (held1, list1, snoc128 | block_array) = _emit(block_array, fill, 128, held, list)
+  val (held2, list2, zeros | block_array) = _emit_zeros(block_array, fill + 1, 55 - fill, held1, list1, ZSNOC_zero())
+  val (lengths | @(byte2, byte3, byte4, byte5, byte6, byte7)) = bitlen_bytes(count_top, count_high, count_blocks, fill)
+  val (held3, written | block_array) = _emit_length(block_array, held2, list2, byte2, byte3, byte4, byte5, byte6, byte7)
+in (held3, PAD_mk(counted, ZCOUNT_short(), lengths, snoc128, zeros, written) | block_array) end
+
+(* A message of 56 to 63 bytes in the block being filled: the first padding
+   block is whole with the 128 and zeros; the second (pad_long_second, once
+   the first is hashed) is the rest *)
+#pub fun pad_long_first {block_loc:agz}{block_cells,hashed_bytes,message:$A.cells}{fill:nat | 56 <= fill; fill < 64}
+  (block_array: $A.barr(block_loc, 64, block_cells), fill: int fill, held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message))
+  : [block_cells_after,marked,first_padded:$A.cells]
+    (HELD(hashed_bytes, block_cells_after, 64, first_padded), LIST(first_padded), SNOC(message, 128, marked), ZSNOC(marked, 63 - fill, first_padded) | $A.barr(block_loc, 64, block_cells_after))
+
+implement pad_long_first {block_loc}{block_cells,hashed_bytes,message}{fill} (block_array, fill, held, list) = let
+  val (held1, list1, snoc128 | block_array) = _emit(block_array, fill, 128, held, list)
+  val (held2, list2, zeros | block_array) = _emit_zeros(block_array, fill + 1, 63 - fill, held1, list1, ZSNOC_zero())
+in (held2, list2, snoc128, zeros | block_array) end
+
+#pub fun pad_long_second {block_loc:agz}{block_cells,message,marked,first_padded:$A.cells}{count_top,count_high,count_blocks,fill:nat | count_top < 8192; count_high < 65536; count_blocks < 1024; 56 <= fill; fill < 64}
+  (block_array: $A.barr(block_loc, 64, block_cells), count_top: int count_top, count_high: int count_high, count_blocks: int count_blocks, fill: int fill,
+   list: LIST(first_padded), counted: COUNTED(message, count_top, count_high, count_blocks, fill), snoc128: SNOC(message, 128, marked), zeros: ZSNOC(marked, 63 - fill, first_padded))
+  : [block_cells_after,padded:$A.cells] (HELD(first_padded, block_cells_after, 64, padded), PAD(message, count_top, count_high, count_blocks, fill, padded) | $A.barr(block_loc, 64, block_cells_after))
+
+implement pad_long_second {block_loc}{block_cells,message,marked,first_padded}{count_top,count_high,count_blocks,fill} (block_array, count_top, count_high, count_blocks, fill, list, counted, snoc128, zeros) = let
+  val (held1, list1, more | block_array) = _emit_zeros(block_array, 0, 56, HELD_zero(), list, zeros)
+  val (lengths | @(byte2, byte3, byte4, byte5, byte6, byte7)) = bitlen_bytes(count_top, count_high, count_blocks, fill)
+  val (held2, written | block_array) = _emit_length(block_array, held1, list1, byte2, byte3, byte4, byte5, byte6, byte7)
+in (held2, PAD_mk(counted, ZCOUNT_long(), lengths, snoc128, more, written) | block_array) end
+
+(* ============================================================
+   The hash of a sequence of whole blocks, and the digest
+   ============================================================ *)
+
+(* SHA256_IV(chaining): the initial hash value H(0) of SHA-256 (FIPS 180-4, section
+   5.3.3): the first 32 bits of the fractional parts of the square roots of
+   the first eight primes. Stated, and tested against the definition, not
+   proved (needs integers of 2 to the 64: sha256 issue 31) *)
+#pub dataprop SHA256_IV(eight_words) =
+  | SHA256_IV_mk(eight(w32(0x6a09, 0xe667), w32(0xbb67, 0xae85), w32(0x3c6e, 0xf372), w32(0xa54f, 0xf53a),
+                       w32(0x510e, 0x527f), w32(0x9b05, 0x688c), w32(0x1f83, 0xd9ab), w32(0x5be0, 0xcd19)))
+
+(* SHA1_IV(chaining): the initial hash value H(0) of SHA-1 (section 5.3.1), five
+   constants the standard gives as they are *)
+#pub dataprop SHA1_IV(five_words) =
+  | SHA1_IV_mk(five(w32(0x6745, 0x2301), w32(0xefcd, 0xab89), w32(0x98ba, 0xdcfe), w32(0x1032, 0x5476), w32(0xc3d2, 0xe1f0)))
+
+(* The initial value, with the proof that it is the table's. The words are in
+   the type, so the values returned are the ones the proof states. *)
+#pub fun sha256_iv ()
+  : (SHA256_IV(eight(w32(0x6a09, 0xe667), w32(0xbb67, 0xae85), w32(0x3c6e, 0xf372), w32(0xa54f, 0xf53a),
+                     w32(0x510e, 0x527f), w32(0x9b05, 0x688c), w32(0x1f83, 0xd9ab), w32(0x5be0, 0xcd19))) |
+     @(int(0x6a09), int(0xe667), int(0xbb67), int(0xae85), int(0x3c6e), int(0xf372), int(0xa54f), int(0xf53a),
+       int(0x510e), int(0x527f), int(0x9b05), int(0x688c), int(0x1f83), int(0xd9ab), int(0x5be0), int(0xcd19)))
+
+implement sha256_iv () = (SHA256_IV_mk() | @(0x6a09, 0xe667, 0xbb67, 0xae85, 0x3c6e, 0xf372, 0xa54f, 0xf53a,
+                                              0x510e, 0x527f, 0x9b05, 0x688c, 0x1f83, 0xd9ab, 0x5be0, 0xcd19))
+
+#pub fun sha1_iv ()
+  : (SHA1_IV(five(w32(0x6745, 0x2301), w32(0xefcd, 0xab89), w32(0x98ba, 0xdcfe), w32(0x1032, 0x5476), w32(0xc3d2, 0xe1f0))) |
+     @(int(0x6745), int(0x2301), int(0xefcd), int(0xab89), int(0x98ba), int(0xdcfe), int(0x1032), int(0x5476), int(0xc3d2), int(0xe1f0)))
+
+implement sha1_iv () = (SHA1_IV_mk() | @(0x6745, 0x2301, 0xefcd, 0xab89, 0x98ba, 0xdcfe, 0x1032, 0x5476, 0xc3d2, 0xe1f0))
+
+(* HASHED256(hashed_bytes, chaining): the SHA-256 chaining value after the
+   sequence hashed_bytes, a whole number of 64-byte blocks, is `chaining`: the
+   initial value, and then each block, which is 64 bytes put after the ones
+   before (HELD) and is compressed (SHA256_BLOCK) onto the value the ones
+   before made. The block's bytes are the first 64 cells of an array's cells,
+   at 0. HASHED1 is the same for SHA-1. *)
+#pub dataprop HASHED256($A.cells, eight_words) =
+  | {chaining:eight_words} HASHED256_start($A.cnil(), chaining) of SHA256_IV(chaining)
+  | {hashed_bytes,hashed_after,cells:$A.cells}{chaining,chaining_after:eight_words}
+    HASHED256_block(hashed_after, chaining_after) of (HASHED256(hashed_bytes, chaining), SHA256_BLOCK(cells, 0, chaining, chaining_after), HELD(hashed_bytes, cells, 64, hashed_after))
+
+#pub dataprop HASHED1($A.cells, five_words) =
+  | {chaining:five_words} HASHED1_start($A.cnil(), chaining) of SHA1_IV(chaining)
+  | {hashed_bytes,hashed_after,cells:$A.cells}{chaining,chaining_after:five_words}
+    HASHED1_block(hashed_after, chaining_after) of (HASHED1(hashed_bytes, chaining), SHA1_BLOCK(cells, 0, chaining, chaining_after), HELD(hashed_bytes, cells, 64, hashed_after))
+
+(* DIGEST256(message, chaining): the SHA-256 of the message is `chaining`:
+   the message padded (PAD), and the padded message hashed block by block from
+   the initial value (HASHED256). DIGEST1 is the same for SHA-1. *)
+#pub dataprop DIGEST256($A.cells, eight_words) =
+  | {message,padded:$A.cells}{count_top,count_high,count_blocks,fill:nat}{chaining:eight_words}
+    DIGEST256_mk(message, chaining) of (PAD(message, count_top, count_high, count_blocks, fill, padded), HASHED256(padded, chaining))
+
+#pub dataprop DIGEST1($A.cells, five_words) =
+  | {message,padded:$A.cells}{count_top,count_high,count_blocks,fill:nat}{chaining:five_words}
+    DIGEST1_mk(message, chaining) of (PAD(message, count_top, count_high, count_blocks, fill, padded), HASHED1(padded, chaining))
+
+
+(* The halves of a word of an array are under 2 to the 16 (bound lemmas: what
+   the compression's preconditions need of the words an array holds) *)
+#pub prfun word_at_bound {cells:$A.cells}{at,high,low:nat} (WORD_AT(cells, at, high, low)): [high < 65536; low < 65536] void
+
+primplement word_at_bound {cells}{at,high,low} (word) = let
+  prval WORD_AT_mk(case0, case1, case2, case3) = word
+in end
+
+#pub prfun eight_at_bound {cells:$A.cells}{at,h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat}
+  (EIGHT_AT(cells, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))))
+  : [h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536] void
+
+primplement eight_at_bound {cells}{at,h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low} (have) = let
+  prval EIGHT_AT_mk(word0, word1, word2, word3, word4, word5, word6, word7) = have
+  prval () = word_at_bound(word0)
+  prval () = word_at_bound(word1)
+  prval () = word_at_bound(word2)
+  prval () = word_at_bound(word3)
+  prval () = word_at_bound(word4)
+  prval () = word_at_bound(word5)
+  prval () = word_at_bound(word6)
+  prval () = word_at_bound(word7)
+in end
+
+(* One block hashed onto the chaining value: the block is the 64 bytes held
+   in the block array, put after the bytes already hashed *)
+fn _compress256 {chain_loc,schedule_loc,block_loc:agz}{chain_cells,schedule_cells,block_cells,hashed_bytes,message:$A.cells}{chaining:eight_words}
+  (block_array: !$A.barr(block_loc, 64, block_cells), schedule_array: $A.barr(schedule_loc, 256, schedule_cells), chain_array: $A.barr(chain_loc, 32, chain_cells),
+   have: EIGHT_AT(chain_cells, 0, chaining), hashed: HASHED256(hashed_bytes, chaining), held: HELD(hashed_bytes, block_cells, 64, message))
+  : [schedule_cells_after,chain_cells_after:$A.cells][chaining_after:eight_words]
+    (HASHED256(message, chaining_after), EIGHT_AT(chain_cells_after, 0, chaining_after) | @($A.barr(schedule_loc, 256, schedule_cells_after), $A.barr(chain_loc, 32, chain_cells_after))) = let
+  prval EIGHT_AT_mk(word0, word1, word2, word3, word4, word5, word6, word7) = have
+  prval opened = EIGHT_AT_mk(word0, word1, word2, word3, word4, word5, word6, word7)
+  prval () = eight_at_bound(opened)
+  val (block, written | @(schedule_array, chain_array)) = sha256_compress(block_array, 0, schedule_array, chain_array, opened)
+in (HASHED256_block(hashed, block, held), written | @(schedule_array, chain_array)) end
+
+#pub datavtype ctx256($A.cells) =
+  | {message:$A.cells}{chain_loc,schedule_loc,block_loc:agz}{chain_cells,schedule_cells,block_cells,hashed_bytes:$A.cells}{chaining:eight_words}{count_top,count_high,count_blocks,fill:nat | count_top < 8191; count_high < 65536; count_blocks < 1024; fill < 64}
+    ctx256_mk(message) of (
+      HASHED256(hashed_bytes, chaining), EIGHT_AT(chain_cells, 0, chaining), HELD(hashed_bytes, block_cells, fill, message), LIST(message), COUNTED(message, count_top, count_high, count_blocks, fill) |
+      $A.barr(chain_loc, 32, chain_cells), $A.barr(schedule_loc, 256, schedule_cells), $A.barr(block_loc, 64, block_cells), int count_top, int count_high, int count_blocks, int fill)
+
+(* The parts of a hash of the empty message: the proofs and the three arrays *)
+fn _init256 ()
+  : [chain_cells,schedule_cells,block_cells:$A.cells][chain_loc,schedule_loc,block_loc:agz][chaining:eight_words]
+    (HASHED256($A.cnil(), chaining), EIGHT_AT(chain_cells, 0, chaining), HELD($A.cnil(), block_cells, 0, $A.cnil()), LIST($A.cnil()),
+     COUNTED($A.cnil(), 0, 0, 0, 0) | @($A.barr(chain_loc, 32, chain_cells), $A.barr(schedule_loc, 256, schedule_cells), $A.barr(block_loc, 64, block_cells))) = let
+  val (_ | chain_array) = $A.barr_alloc(32)
+  val (_ | schedule_array) = $A.barr_alloc(256)
+  val (_ | block_array) = $A.barr_alloc(64)
+  val (initial | @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low)) = sha256_iv()
+  val (have | chain_array) = eight_set(chain_array, 0, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low,
+                                       h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low)
+in (HASHED256_start(initial), have, HELD_zero(), empty_is_a_list(), COUNTED_nil() | @(chain_array, schedule_array, block_array)) end
+
+(* A hash of the empty message: the context of everything fed to it so far,
+   indexed by that message. Its chaining value (HASHED256), the bytes of the
+   block being filled (HELD), their count (COUNTED) and the arrays are held
+   in it, and none of them is given out. *)
+#pub fn init256_proved (): ctx256($A.cnil())
+
+implement init256_proved () = let
+  val (hashed, have, block_held, list, counted | @(chain_array, schedule_array, block_array)) = _init256()
+in ctx256_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, 0, 0, 0, 0) end
+
+(* Bytes of data from i put in the block until the data ends or the block is
+   full: each is read from the data, put at the next cell and counted *)
+fun _feed {block_loc,data_loc:agz}{n:nat}{data_cells,message_before,block_cells,hashed_bytes,message:$A.cells}{length:nat | length <= n}{i:nat | i <= length}{count_top,count_high,count_blocks,fill:nat | fill <= 64} .<length - i>.
+  (block_array: $A.barr(block_loc, 64, block_cells), data: !$A.barr(data_loc, n, data_cells), length: int length, i: int i, fill: int fill,
+   data_held: HELD(message_before, data_cells, i, message), block_held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message), counted: COUNTED(message, count_top, count_high, count_blocks, fill))
+  : [block_cells_after,message_after:$A.cells][index_after,fill_after:nat | i <= index_after; index_after <= length; fill <= fill_after; fill_after <= 64; fill_after - fill == index_after - i; index_after == length || fill_after == 64]
+    (HELD(message_before, data_cells, index_after, message_after), HELD(hashed_bytes, block_cells_after, fill_after, message_after), LIST(message_after), COUNTED(message_after, count_top, count_high, count_blocks, fill_after)
+     | @($A.barr(block_loc, 64, block_cells_after), int index_after, int fill_after)) =
+  if i >= length then (data_held, block_held, list, counted | @(block_array, i, fill))
+  else if fill >= 64 then (data_held, block_held, list, counted | @(block_array, i, fill))
+  else let
+    val [value:int] (cell | value) = $A.barr_get(data, i)
+    val (set | block_array) = $A.barr_set(block_array, fill, value)
+    prval kept = held_frame(block_held, set)
+    prval (snoc, list_after) = snoc_list{message}{value}(list)
+  in _feed(block_array, data, length, i + 1, fill + 1,
+       HELD_next(data_held, cell, snoc), HELD_next(kept, $A.setc_nth_same(set), snoc), list_after, COUNTED_byte(counted, snoc)) end
+
+(* The count once a full block is hashed: carried into the next digit (the
+   top digit is under 8190, so it cannot pass its end) *)
+fn _normalize {count_top,count_high,count_blocks:nat | count_top < 8190; count_high < 65536; count_blocks < 1024} (count_top: int count_top, count_high: int count_high, count_blocks: int count_blocks)
+  : [count_top_after,count_high_after,count_blocks_after:nat | count_top_after < 8191; count_high_after < 65536; count_blocks_after < 1024]
+    (NORM(count_top, count_high, count_blocks, 64, count_top_after, count_high_after, count_blocks_after, 0) | @(int count_top_after, int count_high_after, int count_blocks_after)) =
+  if count_blocks < 1023 then (NORM_block() | @(count_top, count_high, count_blocks + 1))
+  else if count_high < 65535 then (NORM_carry() | @(count_top, count_high + 1, 0))
+  else (NORM_carry2() | @(count_top + 1, 0, 0))
+
+(* What update256_proved did: all `length` bytes were put after the message
+   (Updated256: message_after is the message and the first `length` cells of
+   the data, one after the other), or the message reached its largest length
+   (about 2 to the 45 bytes) first and the bytes from the i-th on were not put
+   (Stopped256: only the first i were). The comparable streaming API of HACL*
+   answers a length over its maximum with an error code, as this does. *)
+#pub datavtype update256_result($A.cells, $A.cells, int) =
+  | {message_before,data_cells:$A.cells}{length:nat}{message_after:$A.cells}
+    Updated256(message_before, data_cells, length) of (HELD(message_before, data_cells, length, message_after) | ctx256(message_after))
+  | {message_before,data_cells:$A.cells}{length:nat}{message_after:$A.cells}{i:nat | i < length}
+    Stopped256(message_before, data_cells, length) of (HELD(message_before, data_cells, i, message_after) | ctx256(message_after))
+
+fun _update256 {chain_loc,schedule_loc,block_loc,data_loc:agz}{n:nat}{data_cells,message_before:$A.cells}{length:nat | length <= n}{i:nat | i <= length}
+  {chain_cells,schedule_cells,block_cells,hashed_bytes,message:$A.cells}{chaining:eight_words}{count_top,count_high,count_blocks,fill:nat | count_top < 8191; count_high < 65536; count_blocks < 1024; fill < 64} .<length - i>.
+  (chain_array: $A.barr(chain_loc, 32, chain_cells), schedule_array: $A.barr(schedule_loc, 256, schedule_cells), block_array: $A.barr(block_loc, 64, block_cells),
+   data: !$A.barr(data_loc, n, data_cells), length: int length, i: int i, count_top: int count_top, count_high: int count_high, count_blocks: int count_blocks, fill: int fill,
+   hashed: HASHED256(hashed_bytes, chaining), have: EIGHT_AT(chain_cells, 0, chaining), block_held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message),
+   counted: COUNTED(message, count_top, count_high, count_blocks, fill), data_held: HELD(message_before, data_cells, i, message))
+  : update256_result(message_before, data_cells, length) =
+  if i >= length then Updated256(data_held | ctx256_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill))
+  else if count_top >= 8190 then Stopped256(data_held | ctx256_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill))
+  else let
+    val (data_held_after, block_held_after, list_after, counted_after | @(block_array, index_after, fill_after)) = _feed(block_array, data, length, i, fill, data_held, block_held, list, counted)
+  in
+    if fill_after >= 64 then let
+      val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress256(block_array, schedule_array, chain_array, have, hashed, block_held_after)
+      val (norm | @(count_top_after, count_high_after, count_blocks_after)) = _normalize(count_top, count_high, count_blocks)
+    in _update256(chain_array, schedule_array, block_array, data, length, index_after, count_top_after, count_high_after, count_blocks_after, 0,
+         hashed_after, have_after, HELD_zero(), list_after, COUNTED_norm(counted_after, norm), data_held_after) end
+    else Updated256(data_held_after | ctx256_mk(hashed, have, block_held_after, list_after, counted_after | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill_after))
+  end
+
+(* The bytes data[0, len) put after the message so far, one by one: the
+   result's HELD proof is that message_after is the message followed by those
+   cells. A block that fills is hashed (and the proof that it was, with the
+   chaining value it made, is in the context). *)
+#pub fn update256_proved {message,data_cells:$A.cells}{l:agz}{n:nat}{length:nat | length <= n}
+  (c: ctx256(message), data: !$A.barr(l, n, data_cells), len: int length): update256_result(message, data_cells, length)
+
+implement update256_proved {message,data_cells}{l}{n}{length} (c, data, len) = let
+  val+ ~ctx256_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill) = c
+in _update256(chain_array, schedule_array, block_array, data, len, 0, count_top, count_high, count_blocks, fill, hashed, have, block_held, list, counted, HELD_zero()) end
+
+(* ============================================================
+   The digest as 64 lowercase hex digits
+   ============================================================ *)
+
+(* HEX_DIGIT(digit, character): `character` is the ASCII character of the hex
+   digit (a to f lower case) *)
+#pub dataprop HEX_DIGIT(int, int) =
+  | {digit:nat | digit < 10} HEX_DIGIT_decimal(digit, 48 + digit)
+  | {digit:nat | 10 <= digit; digit < 16} HEX_DIGIT_letter(digit, 87 + digit)
+
+(* HEXOF(out_cells, chain_cells, n): the first n bytes of chain_cells are
+   written in out_cells as two hex digits each, the high digit first, from
+   cell 0 *)
+#pub dataprop HEXOF($A.cells, $A.cells, int) =
+  | {out_cells,chain_cells:$A.cells} HEXOF_zero(out_cells, chain_cells, 0)
+  | {out_cells,chain_cells:$A.cells}{n:nat}{value,high_nibble,low_nibble,first_char,second_char:nat | value < 256; high_nibble < 16; low_nibble < 16; value == 16*high_nibble + low_nibble}
+    HEXOF_next(out_cells, chain_cells, n + 1) of (
+      HEXOF(out_cells, chain_cells, n), $A.NTH(chain_cells, n, value), HEX_DIGIT(high_nibble, first_char), HEX_DIGIT(low_nibble, second_char),
+      $A.NTH(out_cells, 2*n, first_char), $A.NTH(out_cells, 2*n + 1, second_char))
+
+(* EIGHT_HEX(out_cells, chaining): out_cells holds the 64 hex digits of the 32
+   bytes that are the eight words of `chaining`, big endian (the bytes are
+   those of an array that held them: EIGHT_AT) *)
+#pub dataprop EIGHT_HEX($A.cells, eight_words) =
+  | {out_cells,chain_cells:$A.cells}{chaining:eight_words} EIGHT_HEX_mk(out_cells, chaining) of (EIGHT_AT(chain_cells, 0, chaining), HEXOF(out_cells, chain_cells, 32))
+
+(* Setting a cell beyond the digits written leaves them as they were *)
+prfun hexof_frame {out_cells,out_cells_after,chain_cells:$A.cells}{n,j:nat | 2*n <= j}{character:int} .<n>.
+  (done: HEXOF(out_cells, chain_cells, n), set: $A.SETC(out_cells, j, character, out_cells_after)): HEXOF(out_cells_after, chain_cells, n) =
+  case+ done of
+  | HEXOF_zero() => HEXOF_zero()
+  | HEXOF_next(before, nth, first, second, at_even, at_odd) =>
+      HEXOF_next(hexof_frame(before, set), nth, first, second,
+                 $A.setc_nth_other(set, at_even), $A.setc_nth_other(set, at_odd))
+
+fn _split16 {number:nat | number < 256} (number: int number)
+  : [quotient,remainder:nat | number == 16*quotient + remainder; quotient < 16; remainder < 16] @(int quotient, int remainder) = let
+  val quotient = number / 16
+in @(quotient, number - 16 * quotient) end
+
+fn _hex_char {digit:nat | digit < 16} (digit: int digit): [character:nat | character < 256] (HEX_DIGIT(digit, character) | int character) =
+  if digit < 10 then (HEX_DIGIT_decimal() | digit + 48) else (HEX_DIGIT_letter() | digit + 87)
+
+fun _hex_bytes {chain_loc,out_loc:agz}{chain_cells,out_cells:$A.cells}{n:nat | n <= 32} .<32 - n>.
+  (chain_array: !$A.barr(chain_loc, 32, chain_cells), out: $A.barr(out_loc, 64, out_cells), n: int n, done: HEXOF(out_cells, chain_cells, n))
+  : [out_cells_after:$A.cells] (HEXOF(out_cells_after, chain_cells, 32) | $A.barr(out_loc, 64, out_cells_after)) =
+  if n >= 32 then (done | out)
+  else let
+    val [value:int] (nth | value) = $A.barr_get(chain_array, n)
+    val [high_nibble:int, low_nibble:int] @(high_nibble, low_nibble) = _split16(value)
+    val [first_char:int] (first | first_char) = _hex_char(high_nibble)
+    val [second_char:int] (second | second_char) = _hex_char(low_nibble)
+    val (set_even | out) = $A.barr_set(out, 2 * n, first_char)
+    val (set_odd | out) = $A.barr_set(out, 2 * n + 1, second_char)
+    prval kept = hexof_frame(hexof_frame(done, set_even), set_odd)
+    prval at_even = $A.setc_nth_other(set_odd, $A.setc_nth_same(set_even))
+    prval at_odd = $A.setc_nth_same(set_odd)
+  in _hex_bytes(chain_array, out, n + 1, HEXOF_next(kept, nth, first, second, at_even, at_odd)) end
+
+(* The hex digits of the chaining value, the array of it freed *)
+fn _hex_out256 {chain_loc,out_loc:agz}{chain_cells,out_cells:$A.cells}{chaining:eight_words}
+  (chain_array: $A.barr(chain_loc, 32, chain_cells), have: EIGHT_AT(chain_cells, 0, chaining), out: $A.barr(out_loc, 64, out_cells))
+  : [out_cells_after:$A.cells] (EIGHT_HEX(out_cells_after, chaining) | $A.barr(out_loc, 64, out_cells_after)) = let
+  val (written | out) = _hex_bytes(chain_array, out, 0, HEXOF_zero())
+  val () = $A.barr_free(chain_array)
+in (EIGHT_HEX_mk(have, written) | out) end
+
+(* The padding of the message so far, the last block or two hashed, and the
+   SHA-256 of the message as 64 lowercase hex digits in out, with the proof
+   that it is (DIGEST256, EIGHT_HEX). The context is used up. *)
+#pub fn finish256_proved {message:$A.cells}{out_loc:agz}{out_cells:$A.cells} (c: ctx256(message), out: $A.barr(out_loc, 64, out_cells))
+  : [out_cells_after:$A.cells][chaining:eight_words] (DIGEST256(message, chaining), EIGHT_HEX(out_cells_after, chaining) | $A.barr(out_loc, 64, out_cells_after))
+
+implement finish256_proved {message}{out_loc}{out_cells} (c, out) = let
+  val+ ~ctx256_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill) = c
+in
+  if fill <= 55 then let
+    val (held, pad | block_array) = pad_short(block_array, count_top, count_high, count_blocks, fill, block_held, list, counted)
+    val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress256(block_array, schedule_array, chain_array, have, hashed, held)
+    val () = $A.barr_free(block_array)
+    val () = $A.barr_free(schedule_array)
+    val (hex | out) = _hex_out256(chain_array, have_after, out)
+  in (DIGEST256_mk(pad, hashed_after), hex | out) end
+  else let
+    val (held1, list_first, snoc, zeros | block_array) = pad_long_first(block_array, fill, block_held, list)
+    val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress256(block_array, schedule_array, chain_array, have, hashed, held1)
+    val (held2, pad | block_array) = pad_long_second(block_array, count_top, count_high, count_blocks, fill, list_first, counted, snoc, zeros)
+    val (hashed_last, have_last | @(schedule_array, chain_array)) = _compress256(block_array, schedule_array, chain_array, have_after, hashed_after, held2)
+    val () = $A.barr_free(block_array)
+    val () = $A.barr_free(schedule_array)
+    val (hex | out) = _hex_out256(chain_array, have_last, out)
+  in (DIGEST256_mk(pad, hashed_last), hex | out) end
+end
+
+(* ============================================================
+   The digest of a whole array in one call
+   ============================================================ *)
+
+(* The same loop as _update256, for a message that starts empty and is under
+   2 to the 16 bytes: 64 * count_blocks + fill = i bytes are in (so
+   count_blocks is under 1024), the digits above stay 0, and the message never
+   reaches its largest length. The count is not tied to anything bigger on
+   purpose: the 32-bit solver accepted a false claim in a context that held
+   1024 * count_high + count_blocks = j and 64 * j + fill = i together (65536 *
+   count_high once j is gone) *)
+fun _small256 {chain_loc,schedule_loc,block_loc,data_loc:agz}{n:nat}{data_cells,message_before:$A.cells}{length:nat | length <= n; length <= 65535}{i:nat | i <= length}
+  {chain_cells,schedule_cells,block_cells,hashed_bytes,message:$A.cells}{chaining:eight_words}{count_blocks,fill:nat | count_blocks < 1024; fill < 64; 64*count_blocks + fill == i} .<length - i>.
+  (chain_array: $A.barr(chain_loc, 32, chain_cells), schedule_array: $A.barr(schedule_loc, 256, schedule_cells), block_array: $A.barr(block_loc, 64, block_cells),
+   data: !$A.barr(data_loc, n, data_cells), length: int length, i: int i, count_blocks: int count_blocks, fill: int fill,
+   hashed: HASHED256(hashed_bytes, chaining), have: EIGHT_AT(chain_cells, 0, chaining), block_held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message),
+   counted: COUNTED(message, 0, 0, count_blocks, fill), data_held: HELD(message_before, data_cells, i, message))
+  : [message_after:$A.cells] (HELD(message_before, data_cells, length, message_after) | ctx256(message_after)) =
+  if i >= length then (data_held | ctx256_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, 0, 0, count_blocks, fill))
+  else let
+    val (data_held_after, block_held_after, list_after, counted_after | @(block_array, index_after, fill_after)) = _feed(block_array, data, length, i, fill, data_held, block_held, list, counted)
+  in
+    if fill_after >= 64 then let
+      val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress256(block_array, schedule_array, chain_array, have, hashed, block_held_after)
+    in _small256(chain_array, schedule_array, block_array, data, length, index_after, count_blocks + 1, 0,
+         hashed_after, have_after, HELD_zero(), list_after, COUNTED_norm(counted_after, NORM_block()), data_held_after) end
+    else (data_held_after | ctx256_mk(hashed, have, block_held_after, list_after, counted_after | chain_array, schedule_array, block_array, 0, 0, count_blocks, fill_after))
+  end
+
+(* The SHA-256 of data[0, len), under 2 to the 16 bytes, as 64 lowercase hex
+   digits in out: the message is the first len cells of the data, one after the
+   other (HELD), its digest is the chaining value the padded message makes
+   (DIGEST256), and the digits are that value's (EIGHT_HEX). For more bytes
+   than that, the incremental API, in pieces. *)
+#pub fn sha256_digest_proved {l:agz}{n:nat}{data_cells:$A.cells}{length:nat | length <= n; length <= 65535}{out_loc:agz}{out_cells:$A.cells}
+  (data: !$A.barr(l, n, data_cells), len: int length, out: $A.barr(out_loc, 64, out_cells))
+  : [message,out_cells_after:$A.cells][chaining:eight_words]
+    (HELD($A.cnil(), data_cells, length, message), DIGEST256(message, chaining), EIGHT_HEX(out_cells_after, chaining) | $A.barr(out_loc, 64, out_cells_after))
+
+implement sha256_digest_proved {l}{n}{data_cells}{length}{out_loc}{out_cells} (data, len, out) = let
+  val (hashed, have, block_held, list, counted | @(chain_array, schedule_array, block_array)) = _init256()
+  val (data_held | c) = _small256(chain_array, schedule_array, block_array, data, len, 0, 0, 0, hashed, have, block_held, list, counted, HELD_zero())
+  val (digest, hex | out) = finish256_proved(c, out)
+in (data_held, digest, hex | out) end
+
+(* ============================================================
+   SHA-1's digest (FIPS 180-4, section 6.1), the same padding and blocks
+   ============================================================ *)
+
+#pub prfun five_at_bound {cells:$A.cells}{at,h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat}
+  (FIVE_AT(cells, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))))
+  : [h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536] void
+
+primplement five_at_bound {cells}{at,h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low} (have) = let
+  prval FIVE_AT_mk(word0, word1, word2, word3, word4) = have
+  prval () = word_at_bound(word0)
+  prval () = word_at_bound(word1)
+  prval () = word_at_bound(word2)
+  prval () = word_at_bound(word3)
+  prval () = word_at_bound(word4)
+in end
+
+fn _compress1 {chain_loc,schedule_loc,block_loc:agz}{chain_cells,schedule_cells,block_cells,hashed_bytes,message:$A.cells}{chaining:five_words}
+  (block_array: !$A.barr(block_loc, 64, block_cells), schedule_array: $A.barr(schedule_loc, 320, schedule_cells), chain_array: $A.barr(chain_loc, 20, chain_cells),
+   have: FIVE_AT(chain_cells, 0, chaining), hashed: HASHED1(hashed_bytes, chaining), held: HELD(hashed_bytes, block_cells, 64, message))
+  : [schedule_cells_after,chain_cells_after:$A.cells][chaining_after:five_words]
+    (HASHED1(message, chaining_after), FIVE_AT(chain_cells_after, 0, chaining_after) | @($A.barr(schedule_loc, 320, schedule_cells_after), $A.barr(chain_loc, 20, chain_cells_after))) = let
+  prval FIVE_AT_mk(word0, word1, word2, word3, word4) = have
+  prval opened = FIVE_AT_mk(word0, word1, word2, word3, word4)
+  prval () = five_at_bound(opened)
+  val (block, written | @(schedule_array, chain_array)) = sha1_compress(block_array, 0, schedule_array, chain_array, opened)
+in (HASHED1_block(hashed, block, held), written | @(schedule_array, chain_array)) end
+
+(* The padding and the last blocks of a SHA-1 message, and its 20 bytes
+   written to out (the five words of the chaining value, big endian) *)
+fn _finish1 {chain_loc,schedule_loc,block_loc,out_loc:agz}{chain_cells,schedule_cells,block_cells,hashed_bytes,message,out_cells:$A.cells}{chaining:five_words}{count_top,count_high,count_blocks,fill:nat | count_top < 8191; count_high < 65536; count_blocks < 1024; fill < 64}
+  (chain_array: $A.barr(chain_loc, 20, chain_cells), schedule_array: $A.barr(schedule_loc, 320, schedule_cells), block_array: $A.barr(block_loc, 64, block_cells),
+   count_top: int count_top, count_high: int count_high, count_blocks: int count_blocks, fill: int fill,
+   hashed: HASHED1(hashed_bytes, chaining), have: FIVE_AT(chain_cells, 0, chaining), block_held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message),
+   counted: COUNTED(message, count_top, count_high, count_blocks, fill), out: $A.barr(out_loc, 20, out_cells))
+  : [out_cells_after:$A.cells][chaining_after:five_words] (DIGEST1(message, chaining_after), FIVE_AT(out_cells_after, 0, chaining_after) | $A.barr(out_loc, 20, out_cells_after)) = let
+  fn written {chain_loc,out_loc:agz}{chain_cells,out_cells:$A.cells}{chaining:five_words}
+    (chain_array: $A.barr(chain_loc, 20, chain_cells), have: FIVE_AT(chain_cells, 0, chaining), out: $A.barr(out_loc, 20, out_cells))
+    : [out_cells_after:$A.cells] (FIVE_AT(out_cells_after, 0, chaining) | $A.barr(out_loc, 20, out_cells_after)) = let
+    prval FIVE_AT_mk(word0, word1, word2, word3, word4) = have
+    prval opened = FIVE_AT_mk(word0, word1, word2, word3, word4)
+    prval () = five_at_bound(opened)
+    val @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low) = five_get(chain_array, 0, opened)
+    val () = $A.barr_free(chain_array)
+  in five_set(out, 0, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low) end
+in
+  if fill <= 55 then let
+    val (held, pad | block_array) = pad_short(block_array, count_top, count_high, count_blocks, fill, block_held, list, counted)
+    val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress1(block_array, schedule_array, chain_array, have, hashed, held)
+    val () = $A.barr_free(block_array)
+    val () = $A.barr_free(schedule_array)
+    val (placed | out) = written(chain_array, have_after, out)
+  in (DIGEST1_mk(pad, hashed_after), placed | out) end
+  else let
+    val (held1, list_first, snoc, zeros | block_array) = pad_long_first(block_array, fill, block_held, list)
+    val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress1(block_array, schedule_array, chain_array, have, hashed, held1)
+    val (held2, pad | block_array) = pad_long_second(block_array, count_top, count_high, count_blocks, fill, list_first, counted, snoc, zeros)
+    val (hashed_last, have_last | @(schedule_array, chain_array)) = _compress1(block_array, schedule_array, chain_array, have_after, hashed_after, held2)
+    val () = $A.barr_free(block_array)
+    val () = $A.barr_free(schedule_array)
+    val (placed | out) = written(chain_array, have_last, out)
+  in (DIGEST1_mk(pad, hashed_last), placed | out) end
+end
+
+fn _init1 ()
+  : [chain_cells,schedule_cells,block_cells:$A.cells][chain_loc,schedule_loc,block_loc:agz][chaining:five_words]
+    (HASHED1($A.cnil(), chaining), FIVE_AT(chain_cells, 0, chaining), HELD($A.cnil(), block_cells, 0, $A.cnil()), LIST($A.cnil()),
+     COUNTED($A.cnil(), 0, 0, 0, 0) | @($A.barr(chain_loc, 20, chain_cells), $A.barr(schedule_loc, 320, schedule_cells), $A.barr(block_loc, 64, block_cells))) = let
+  val (_ | chain_array) = $A.barr_alloc(20)
+  val (_ | schedule_array) = $A.barr_alloc(320)
+  val (_ | block_array) = $A.barr_alloc(64)
+  val (initial | @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low)) = sha1_iv()
+  val (have | chain_array) = five_set(chain_array, 0, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low)
+in (HASHED1_start(initial), have, HELD_zero(), empty_is_a_list(), COUNTED_nil() | @(chain_array, schedule_array, block_array)) end
+
+fun _small1 {chain_loc,schedule_loc,block_loc,data_loc,out_loc:agz}{n:nat}{data_cells,message_before,out_cells:$A.cells}{length:nat | length <= n; length <= 65535}{i:nat | i <= length}
+  {chain_cells,schedule_cells,block_cells,hashed_bytes,message:$A.cells}{chaining:five_words}{count_blocks,fill:nat | count_blocks < 1024; fill < 64; 64*count_blocks + fill == i} .<length - i>.
+  (chain_array: $A.barr(chain_loc, 20, chain_cells), schedule_array: $A.barr(schedule_loc, 320, schedule_cells), block_array: $A.barr(block_loc, 64, block_cells),
+   data: !$A.barr(data_loc, n, data_cells), length: int length, i: int i, count_blocks: int count_blocks, fill: int fill,
+   hashed: HASHED1(hashed_bytes, chaining), have: FIVE_AT(chain_cells, 0, chaining), block_held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message),
+   counted: COUNTED(message, 0, 0, count_blocks, fill), data_held: HELD(message_before, data_cells, i, message), out: $A.barr(out_loc, 20, out_cells))
+  : [message_after,out_cells_after:$A.cells][chaining_after:five_words]
+    (HELD(message_before, data_cells, length, message_after), DIGEST1(message_after, chaining_after), FIVE_AT(out_cells_after, 0, chaining_after) | $A.barr(out_loc, 20, out_cells_after)) =
+  if i >= length then let
+    val (digest, placed | out) = _finish1(chain_array, schedule_array, block_array, 0, 0, count_blocks, fill, hashed, have, block_held, list, counted, out)
+  in (data_held, digest, placed | out) end
+  else let
+    val (data_held_after, block_held_after, list_after, counted_after | @(block_array, index_after, fill_after)) = _feed(block_array, data, length, i, fill, data_held, block_held, list, counted)
+  in
+    if fill_after >= 64 then let
+      val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress1(block_array, schedule_array, chain_array, have, hashed, block_held_after)
+    in _small1(chain_array, schedule_array, block_array, data, length, index_after, count_blocks + 1, 0,
+         hashed_after, have_after, HELD_zero(), list_after, COUNTED_norm(counted_after, NORM_block()), data_held_after, out) end
+    else let
+      val (digest, placed | out) = _finish1(chain_array, schedule_array, block_array, 0, 0, count_blocks, fill_after, hashed, have, block_held_after, list_after, counted_after, out)
+    in (data_held_after, digest, placed | out) end
+  end
+
+(* The SHA-1 of data[0, len), under 2 to the 16 bytes, as its 20 bytes in out,
+   with the proof that the message is the data and the bytes are its digest
+   (DIGEST1, FIVE_AT) *)
+#pub fn sha1_digest_proved {l:agz}{n:nat}{data_cells:$A.cells}{length:nat | length <= n; length <= 65535}{out_loc:agz}{out_cells:$A.cells}
+  (data: !$A.barr(l, n, data_cells), len: int length, out: $A.barr(out_loc, 20, out_cells))
+  : [message,out_cells_after:$A.cells][chaining:five_words]
+    (HELD($A.cnil(), data_cells, length, message), DIGEST1(message, chaining), FIVE_AT(out_cells_after, 0, chaining) | $A.barr(out_loc, 20, out_cells_after))
+
+implement sha1_digest_proved {l}{n}{data_cells}{length}{out_loc}{out_cells} (data, len, out) = let
+  val (hashed, have, block_held, list, counted | @(chain_array, schedule_array, block_array)) = _init1()
+in _small1(chain_array, schedule_array, block_array, data, len, 0, 0, 0, hashed, have, block_held, list, counted, HELD_zero(), out) end

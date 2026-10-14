@@ -1,0 +1,8 @@
+[package]
+name = "hashed-block-at-an-offset"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

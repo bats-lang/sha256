@@ -1,0 +1,8 @@
+[package]
+name = "update-held-from-another-array"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

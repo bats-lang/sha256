@@ -1,0 +1,8 @@
+[package]
+name = "pad-starts-with-zero"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

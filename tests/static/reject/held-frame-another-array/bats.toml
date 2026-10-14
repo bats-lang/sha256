@@ -1,0 +1,8 @@
+[package]
+name = "held-frame-another-array"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

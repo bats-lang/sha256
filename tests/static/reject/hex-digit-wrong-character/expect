@@ -1,0 +1,1 @@
+hex-digit-wrong-character.bats: 364(line=7, offs=40) -- 388(line=7, offs=64): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eapp(S2Ecst(add_int_int); S2Eintinf(48), S2Eintinf(5)); S2Eintinf(54)))

@@ -1,0 +1,8 @@
+[package]
+name = "iv-of-another-word"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

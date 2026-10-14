@@ -1,0 +1,1 @@
+pad-long-second-wrong-zeros.bats: 764(line=10, offs=101) -- 771(line=10, offs=108): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(62); S2Eapp(S2Ecst(sub_int_int); S2Eintinf(63), S2Eintinf(60))))

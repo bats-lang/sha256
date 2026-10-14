@@ -1,0 +1,1 @@
+snoc-list-another-byte.bats: 544(line=9, offs=4) -- 548(line=9, offs=8): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(value

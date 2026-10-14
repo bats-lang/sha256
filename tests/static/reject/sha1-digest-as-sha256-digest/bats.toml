@@ -1,0 +1,8 @@
+[package]
+name = "sha1-digest-as-sha256-digest"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""
