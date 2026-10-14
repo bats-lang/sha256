@@ -1,0 +1,1 @@
+round-big-sigma-swapped.bats: 1877(line=20, offs=24) -- 1882(line=20, offs=29): error(3): the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(BIG_SIGMA_1); S2EVar

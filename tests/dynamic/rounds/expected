@@ -1,0 +1,582 @@
+sha256 K0 428a2f98
+sha256 K1 71374491
+sha256 K2 b5c0fbcf
+sha256 K3 e9b5dba5
+sha256 K4 3956c25b
+sha256 K5 59f111f1
+sha256 K6 923f82a4
+sha256 K7 ab1c5ed5
+sha256 K8 d807aa98
+sha256 K9 12835b01
+sha256 K10 243185be
+sha256 K11 550c7dc3
+sha256 K12 72be5d74
+sha256 K13 80deb1fe
+sha256 K14 9bdc06a7
+sha256 K15 c19bf174
+sha256 K16 e49b69c1
+sha256 K17 efbe4786
+sha256 K18 0fc19dc6
+sha256 K19 240ca1cc
+sha256 K20 2de92c6f
+sha256 K21 4a7484aa
+sha256 K22 5cb0a9dc
+sha256 K23 76f988da
+sha256 K24 983e5152
+sha256 K25 a831c66d
+sha256 K26 b00327c8
+sha256 K27 bf597fc7
+sha256 K28 c6e00bf3
+sha256 K29 d5a79147
+sha256 K30 06ca6351
+sha256 K31 14292967
+sha256 K32 27b70a85
+sha256 K33 2e1b2138
+sha256 K34 4d2c6dfc
+sha256 K35 53380d13
+sha256 K36 650a7354
+sha256 K37 766a0abb
+sha256 K38 81c2c92e
+sha256 K39 92722c85
+sha256 K40 a2bfe8a1
+sha256 K41 a81a664b
+sha256 K42 c24b8b70
+sha256 K43 c76c51a3
+sha256 K44 d192e819
+sha256 K45 d6990624
+sha256 K46 f40e3585
+sha256 K47 106aa070
+sha256 K48 19a4c116
+sha256 K49 1e376c08
+sha256 K50 2748774c
+sha256 K51 34b0bcb5
+sha256 K52 391c0cb3
+sha256 K53 4ed8aa4a
+sha256 K54 5b9cca4f
+sha256 K55 682e6ff3
+sha256 K56 748f82ee
+sha256 K57 78a5636f
+sha256 K58 84c87814
+sha256 K59 8cc70208
+sha256 K60 90befffa
+sha256 K61 a4506ceb
+sha256 K62 bef9a3f7
+sha256 K63 c67178f2
+sha1 K0 5a827999
+sha1 K1 5a827999
+sha1 K2 5a827999
+sha1 K3 5a827999
+sha1 K4 5a827999
+sha1 K5 5a827999
+sha1 K6 5a827999
+sha1 K7 5a827999
+sha1 K8 5a827999
+sha1 K9 5a827999
+sha1 K10 5a827999
+sha1 K11 5a827999
+sha1 K12 5a827999
+sha1 K13 5a827999
+sha1 K14 5a827999
+sha1 K15 5a827999
+sha1 K16 5a827999
+sha1 K17 5a827999
+sha1 K18 5a827999
+sha1 K19 5a827999
+sha1 K20 6ed9eba1
+sha1 K21 6ed9eba1
+sha1 K22 6ed9eba1
+sha1 K23 6ed9eba1
+sha1 K24 6ed9eba1
+sha1 K25 6ed9eba1
+sha1 K26 6ed9eba1
+sha1 K27 6ed9eba1
+sha1 K28 6ed9eba1
+sha1 K29 6ed9eba1
+sha1 K30 6ed9eba1
+sha1 K31 6ed9eba1
+sha1 K32 6ed9eba1
+sha1 K33 6ed9eba1
+sha1 K34 6ed9eba1
+sha1 K35 6ed9eba1
+sha1 K36 6ed9eba1
+sha1 K37 6ed9eba1
+sha1 K38 6ed9eba1
+sha1 K39 6ed9eba1
+sha1 K40 8f1bbcdc
+sha1 K41 8f1bbcdc
+sha1 K42 8f1bbcdc
+sha1 K43 8f1bbcdc
+sha1 K44 8f1bbcdc
+sha1 K45 8f1bbcdc
+sha1 K46 8f1bbcdc
+sha1 K47 8f1bbcdc
+sha1 K48 8f1bbcdc
+sha1 K49 8f1bbcdc
+sha1 K50 8f1bbcdc
+sha1 K51 8f1bbcdc
+sha1 K52 8f1bbcdc
+sha1 K53 8f1bbcdc
+sha1 K54 8f1bbcdc
+sha1 K55 8f1bbcdc
+sha1 K56 8f1bbcdc
+sha1 K57 8f1bbcdc
+sha1 K58 8f1bbcdc
+sha1 K59 8f1bbcdc
+sha1 K60 ca62c1d6
+sha1 K61 ca62c1d6
+sha1 K62 ca62c1d6
+sha1 K63 ca62c1d6
+sha1 K64 ca62c1d6
+sha1 K65 ca62c1d6
+sha1 K66 ca62c1d6
+sha1 K67 ca62c1d6
+sha1 K68 ca62c1d6
+sha1 K69 ca62c1d6
+sha1 K70 ca62c1d6
+sha1 K71 ca62c1d6
+sha1 K72 ca62c1d6
+sha1 K73 ca62c1d6
+sha1 K74 ca62c1d6
+sha1 K75 ca62c1d6
+sha1 K76 ca62c1d6
+sha1 K77 ca62c1d6
+sha1 K78 ca62c1d6
+sha1 K79 ca62c1d6
+abc block 0 sha256 t=00 5d6aebcd 6a09e667 bb67ae85 3c6ef372 fa2a4622 510e527f 9b05688c 1f83d9ab
+abc block 0 sha256 t=01 5a6ad9ad 5d6aebcd 6a09e667 bb67ae85 78ce7989 fa2a4622 510e527f 9b05688c
+abc block 0 sha256 t=02 c8c347a7 5a6ad9ad 5d6aebcd 6a09e667 f92939eb 78ce7989 fa2a4622 510e527f
+abc block 0 sha256 t=03 d550f666 c8c347a7 5a6ad9ad 5d6aebcd 24e00850 f92939eb 78ce7989 fa2a4622
+abc block 0 sha256 t=04 04409a6a d550f666 c8c347a7 5a6ad9ad 43ada245 24e00850 f92939eb 78ce7989
+abc block 0 sha256 t=05 2b4209f5 04409a6a d550f666 c8c347a7 714260ad 43ada245 24e00850 f92939eb
+abc block 0 sha256 t=06 e5030380 2b4209f5 04409a6a d550f666 9b27a401 714260ad 43ada245 24e00850
+abc block 0 sha256 t=07 85a07b5f e5030380 2b4209f5 04409a6a 0c657a79 9b27a401 714260ad 43ada245
+abc block 0 sha256 t=08 8e04ecb9 85a07b5f e5030380 2b4209f5 32ca2d8c 0c657a79 9b27a401 714260ad
+abc block 0 sha256 t=09 8c87346b 8e04ecb9 85a07b5f e5030380 1cc92596 32ca2d8c 0c657a79 9b27a401
+abc block 0 sha256 t=10 4798a3f4 8c87346b 8e04ecb9 85a07b5f 436b23e8 1cc92596 32ca2d8c 0c657a79
+abc block 0 sha256 t=11 f71fc5a9 4798a3f4 8c87346b 8e04ecb9 816fd6e9 436b23e8 1cc92596 32ca2d8c
+abc block 0 sha256 t=12 87912990 f71fc5a9 4798a3f4 8c87346b 1e578218 816fd6e9 436b23e8 1cc92596
+abc block 0 sha256 t=13 d932eb16 87912990 f71fc5a9 4798a3f4 745a48de 1e578218 816fd6e9 436b23e8
+abc block 0 sha256 t=14 c0645fde d932eb16 87912990 f71fc5a9 0b92f20c 745a48de 1e578218 816fd6e9
+abc block 0 sha256 t=15 b0fa238e c0645fde d932eb16 87912990 07590dcd 0b92f20c 745a48de 1e578218
+abc block 0 sha256 t=16 21da9a9b b0fa238e c0645fde d932eb16 8034229c 07590dcd 0b92f20c 745a48de
+abc block 0 sha256 t=17 c2fbd9d1 21da9a9b b0fa238e c0645fde 846ee454 8034229c 07590dcd 0b92f20c
+abc block 0 sha256 t=18 fe777bbf c2fbd9d1 21da9a9b b0fa238e cc899961 846ee454 8034229c 07590dcd
+abc block 0 sha256 t=19 e1f20c33 fe777bbf c2fbd9d1 21da9a9b b0638179 cc899961 846ee454 8034229c
+abc block 0 sha256 t=20 9dc68b63 e1f20c33 fe777bbf c2fbd9d1 8ada8930 b0638179 cc899961 846ee454
+abc block 0 sha256 t=21 c2606d6d 9dc68b63 e1f20c33 fe777bbf e1257970 8ada8930 b0638179 cc899961
+abc block 0 sha256 t=22 a7a3623f c2606d6d 9dc68b63 e1f20c33 49f5114a e1257970 8ada8930 b0638179
+abc block 0 sha256 t=23 c5d53d8d a7a3623f c2606d6d 9dc68b63 aa47c347 49f5114a e1257970 8ada8930
+abc block 0 sha256 t=24 1c2c2838 c5d53d8d a7a3623f c2606d6d 2823ef91 aa47c347 49f5114a e1257970
+abc block 0 sha256 t=25 cde8037d 1c2c2838 c5d53d8d a7a3623f 14383d8e 2823ef91 aa47c347 49f5114a
+abc block 0 sha256 t=26 b62ec4bc cde8037d 1c2c2838 c5d53d8d c74c6516 14383d8e 2823ef91 aa47c347
+abc block 0 sha256 t=27 77d37528 b62ec4bc cde8037d 1c2c2838 edffbff8 c74c6516 14383d8e 2823ef91
+abc block 0 sha256 t=28 363482c9 77d37528 b62ec4bc cde8037d 6112a3b7 edffbff8 c74c6516 14383d8e
+abc block 0 sha256 t=29 a0060b30 363482c9 77d37528 b62ec4bc ade79437 6112a3b7 edffbff8 c74c6516
+abc block 0 sha256 t=30 ea992a22 a0060b30 363482c9 77d37528 0109ab3a ade79437 6112a3b7 edffbff8
+abc block 0 sha256 t=31 73b33bf5 ea992a22 a0060b30 363482c9 ba591112 0109ab3a ade79437 6112a3b7
+abc block 0 sha256 t=32 98e12507 73b33bf5 ea992a22 a0060b30 9cd9f5f6 ba591112 0109ab3a ade79437
+abc block 0 sha256 t=33 fe604df5 98e12507 73b33bf5 ea992a22 59249dd3 9cd9f5f6 ba591112 0109ab3a
+abc block 0 sha256 t=34 a9a7738c fe604df5 98e12507 73b33bf5 085f3833 59249dd3 9cd9f5f6 ba591112
+abc block 0 sha256 t=35 65a0cfe4 a9a7738c fe604df5 98e12507 f4b002d6 085f3833 59249dd3 9cd9f5f6
+abc block 0 sha256 t=36 41a65cb1 65a0cfe4 a9a7738c fe604df5 0772a26b f4b002d6 085f3833 59249dd3
+abc block 0 sha256 t=37 34df1604 41a65cb1 65a0cfe4 a9a7738c a507a53d 0772a26b f4b002d6 085f3833
+abc block 0 sha256 t=38 6dc57a8a 34df1604 41a65cb1 65a0cfe4 f0781bc8 a507a53d 0772a26b f4b002d6
+abc block 0 sha256 t=39 79ea687a 6dc57a8a 34df1604 41a65cb1 1efbc0a0 f0781bc8 a507a53d 0772a26b
+abc block 0 sha256 t=40 d6670766 79ea687a 6dc57a8a 34df1604 26352d63 1efbc0a0 f0781bc8 a507a53d
+abc block 0 sha256 t=41 df46652f d6670766 79ea687a 6dc57a8a 838b2711 26352d63 1efbc0a0 f0781bc8
+abc block 0 sha256 t=42 17aa0dfe df46652f d6670766 79ea687a decd4715 838b2711 26352d63 1efbc0a0
+abc block 0 sha256 t=43 9d4baf93 17aa0dfe df46652f d6670766 fda24c2e decd4715 838b2711 26352d63
+abc block 0 sha256 t=44 26628815 9d4baf93 17aa0dfe df46652f a80f11f0 fda24c2e decd4715 838b2711
+abc block 0 sha256 t=45 72ab4b91 26628815 9d4baf93 17aa0dfe b7755da1 a80f11f0 fda24c2e decd4715
+abc block 0 sha256 t=46 a14c14b0 72ab4b91 26628815 9d4baf93 d57b94a9 b7755da1 a80f11f0 fda24c2e
+abc block 0 sha256 t=47 4172328d a14c14b0 72ab4b91 26628815 fecf0bc6 d57b94a9 b7755da1 a80f11f0
+abc block 0 sha256 t=48 05757ceb 4172328d a14c14b0 72ab4b91 bd714038 fecf0bc6 d57b94a9 b7755da1
+abc block 0 sha256 t=49 f11bfaa8 05757ceb 4172328d a14c14b0 6e5c390c bd714038 fecf0bc6 d57b94a9
+abc block 0 sha256 t=50 7a0508a1 f11bfaa8 05757ceb 4172328d 52f1ccf7 6e5c390c bd714038 fecf0bc6
+abc block 0 sha256 t=51 886e7a22 7a0508a1 f11bfaa8 05757ceb 49231c1e 52f1ccf7 6e5c390c bd714038
+abc block 0 sha256 t=52 101fd28f 886e7a22 7a0508a1 f11bfaa8 529e7d00 49231c1e 52f1ccf7 6e5c390c
+abc block 0 sha256 t=53 f5702fdb 101fd28f 886e7a22 7a0508a1 9f4787c3 529e7d00 49231c1e 52f1ccf7
+abc block 0 sha256 t=54 3ec45cdb f5702fdb 101fd28f 886e7a22 e50e1b4f 9f4787c3 529e7d00 49231c1e
+abc block 0 sha256 t=55 38cc9913 3ec45cdb f5702fdb 101fd28f 54cb266b e50e1b4f 9f4787c3 529e7d00
+abc block 0 sha256 t=56 fcd1887b 38cc9913 3ec45cdb f5702fdb 9b5e906c 54cb266b e50e1b4f 9f4787c3
+abc block 0 sha256 t=57 c062d46f fcd1887b 38cc9913 3ec45cdb 7e44008e 9b5e906c 54cb266b e50e1b4f
+abc block 0 sha256 t=58 ffb70472 c062d46f fcd1887b 38cc9913 6d83bfc6 7e44008e 9b5e906c 54cb266b
+abc block 0 sha256 t=59 b6ae8fff ffb70472 c062d46f fcd1887b b21bad3d 6d83bfc6 7e44008e 9b5e906c
+abc block 0 sha256 t=60 b85e2ce9 b6ae8fff ffb70472 c062d46f 961f4894 b21bad3d 6d83bfc6 7e44008e
+abc block 0 sha256 t=61 04d24d6c b85e2ce9 b6ae8fff ffb70472 948d25b6 961f4894 b21bad3d 6d83bfc6
+abc block 0 sha256 t=62 d39a2165 04d24d6c b85e2ce9 b6ae8fff fb121210 948d25b6 961f4894 b21bad3d
+abc block 0 sha256 t=63 506e3058 d39a2165 04d24d6c b85e2ce9 5ef50f24 fb121210 948d25b6 961f4894
+abc sha256 digest ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad differing=0
+abc block 0 sha1 t=00 0116fc33 67452301 7bf36ae2 98badcfe 10325476
+abc block 0 sha1 t=01 8990536d 0116fc33 59d148c0 7bf36ae2 98badcfe
+abc block 0 sha1 t=02 a1390f08 8990536d c045bf0c 59d148c0 7bf36ae2
+abc block 0 sha1 t=03 cdd8e11b a1390f08 626414db c045bf0c 59d148c0
+abc block 0 sha1 t=04 cfd499de cdd8e11b 284e43c2 626414db c045bf0c
+abc block 0 sha1 t=05 3fc7ca40 cfd499de f3763846 284e43c2 626414db
+abc block 0 sha1 t=06 993e30c1 3fc7ca40 b3f52677 f3763846 284e43c2
+abc block 0 sha1 t=07 9e8c07d4 993e30c1 0ff1f290 b3f52677 f3763846
+abc block 0 sha1 t=08 4b6ae328 9e8c07d4 664f8c30 0ff1f290 b3f52677
+abc block 0 sha1 t=09 8351f929 4b6ae328 27a301f5 664f8c30 0ff1f290
+abc block 0 sha1 t=10 fbda9e89 8351f929 12dab8ca 27a301f5 664f8c30
+abc block 0 sha1 t=11 63188fe4 fbda9e89 60d47e4a 12dab8ca 27a301f5
+abc block 0 sha1 t=12 4607b664 63188fe4 7ef6a7a2 60d47e4a 12dab8ca
+abc block 0 sha1 t=13 9128f695 4607b664 18c623f9 7ef6a7a2 60d47e4a
+abc block 0 sha1 t=14 196bee77 9128f695 1181ed99 18c623f9 7ef6a7a2
+abc block 0 sha1 t=15 20bdd62f 196bee77 644a3da5 1181ed99 18c623f9
+abc block 0 sha1 t=16 4e925823 20bdd62f c65afb9d 644a3da5 1181ed99
+abc block 0 sha1 t=17 82aa6728 4e925823 c82f758b c65afb9d 644a3da5
+abc block 0 sha1 t=18 dc64901d 82aa6728 d3a49608 c82f758b c65afb9d
+abc block 0 sha1 t=19 fd9e1d7d dc64901d 20aa99ca d3a49608 c82f758b
+abc block 0 sha1 t=20 1a37b0ca fd9e1d7d 77192407 20aa99ca d3a49608
+abc block 0 sha1 t=21 33a23bfc 1a37b0ca 7f67875f 77192407 20aa99ca
+abc block 0 sha1 t=22 21283486 33a23bfc 868dec32 7f67875f 77192407
+abc block 0 sha1 t=23 d541f12d 21283486 0ce88eff 868dec32 7f67875f
+abc block 0 sha1 t=24 c7567dc6 d541f12d 884a0d21 0ce88eff 868dec32
+abc block 0 sha1 t=25 48413ba4 c7567dc6 75507c4b 884a0d21 0ce88eff
+abc block 0 sha1 t=26 be35fbd5 48413ba4 b1d59f71 75507c4b 884a0d21
+abc block 0 sha1 t=27 4aa84d97 be35fbd5 12104ee9 b1d59f71 75507c4b
+abc block 0 sha1 t=28 8370b52e 4aa84d97 6f8d7ef5 12104ee9 b1d59f71
+abc block 0 sha1 t=29 c5fbaf5d 8370b52e d2aa1365 6f8d7ef5 12104ee9
+abc block 0 sha1 t=30 1267b407 c5fbaf5d a0dc2d4b d2aa1365 6f8d7ef5
+abc block 0 sha1 t=31 3b845d33 1267b407 717eebd7 a0dc2d4b d2aa1365
+abc block 0 sha1 t=32 046faa0a 3b845d33 c499ed01 717eebd7 a0dc2d4b
+abc block 0 sha1 t=33 2c0ebc11 046faa0a cee1174c c499ed01 717eebd7
+abc block 0 sha1 t=34 21796ad4 2c0ebc11 811bea82 cee1174c c499ed01
+abc block 0 sha1 t=35 dcbbb0cb 21796ad4 4b03af04 811bea82 cee1174c
+abc block 0 sha1 t=36 0f511fd8 dcbbb0cb 085e5ab5 4b03af04 811bea82
+abc block 0 sha1 t=37 dc63973f 0f511fd8 f72eec32 085e5ab5 4b03af04
+abc block 0 sha1 t=38 4c986405 dc63973f 03d447f6 f72eec32 085e5ab5
+abc block 0 sha1 t=39 32de1cba 4c986405 f718e5cf 03d447f6 f72eec32
+abc block 0 sha1 t=40 fc87dedf 32de1cba 53261901 f718e5cf 03d447f6
+abc block 0 sha1 t=41 970a0d5c fc87dedf 8cb7872e 53261901 f718e5cf
+abc block 0 sha1 t=42 7f193dc5 970a0d5c ff21f7b7 8cb7872e 53261901
+abc block 0 sha1 t=43 ee1b1aaf 7f193dc5 25c28357 ff21f7b7 8cb7872e
+abc block 0 sha1 t=44 40f28e09 ee1b1aaf 5fc64f71 25c28357 ff21f7b7
+abc block 0 sha1 t=45 1c51e1f2 40f28e09 fb86c6ab 5fc64f71 25c28357
+abc block 0 sha1 t=46 a01b846c 1c51e1f2 503ca382 fb86c6ab 5fc64f71
+abc block 0 sha1 t=47 bead02ca a01b846c 8714787c 503ca382 fb86c6ab
+abc block 0 sha1 t=48 baf39337 bead02ca 2806e11b 8714787c 503ca382
+abc block 0 sha1 t=49 120731c5 baf39337 afab40b2 2806e11b 8714787c
+abc block 0 sha1 t=50 641db2ce 120731c5 eebce4cd afab40b2 2806e11b
+abc block 0 sha1 t=51 3847ad66 641db2ce 4481cc71 eebce4cd afab40b2
+abc block 0 sha1 t=52 e490436d 3847ad66 99076cb3 4481cc71 eebce4cd
+abc block 0 sha1 t=53 27e9f1d8 e490436d 8e11eb59 99076cb3 4481cc71
+abc block 0 sha1 t=54 7b71f76d 27e9f1d8 792410db 8e11eb59 99076cb3
+abc block 0 sha1 t=55 5e6456af 7b71f76d 09fa7c76 792410db 8e11eb59
+abc block 0 sha1 t=56 c846093f 5e6456af 5edc7ddb 09fa7c76 792410db
+abc block 0 sha1 t=57 d262ff50 c846093f d79915ab 5edc7ddb 09fa7c76
+abc block 0 sha1 t=58 09d785fd d262ff50 f211824f d79915ab 5edc7ddb
+abc block 0 sha1 t=59 3f52de5a 09d785fd 3498bfd4 f211824f d79915ab
+abc block 0 sha1 t=60 d756c147 3f52de5a 4275e17f 3498bfd4 f211824f
+abc block 0 sha1 t=61 548c9cb2 d756c147 8fd4b796 4275e17f 3498bfd4
+abc block 0 sha1 t=62 b66c020b 548c9cb2 f5d5b051 8fd4b796 4275e17f
+abc block 0 sha1 t=63 6b61c9e1 b66c020b 9523272c f5d5b051 8fd4b796
+abc block 0 sha1 t=64 19dfa7ac 6b61c9e1 ed9b0082 9523272c f5d5b051
+abc block 0 sha1 t=65 101655f9 19dfa7ac 5ad87278 ed9b0082 9523272c
+abc block 0 sha1 t=66 0c3df2b4 101655f9 0677e9eb 5ad87278 ed9b0082
+abc block 0 sha1 t=67 78dd4d2b 0c3df2b4 4405957e 0677e9eb 5ad87278
+abc block 0 sha1 t=68 497093c0 78dd4d2b 030f7cad 4405957e 0677e9eb
+abc block 0 sha1 t=69 3f2588c2 497093c0 de37534a 030f7cad 4405957e
+abc block 0 sha1 t=70 c199f8c7 3f2588c2 125c24f0 de37534a 030f7cad
+abc block 0 sha1 t=71 39859de7 c199f8c7 8fc96230 125c24f0 de37534a
+abc block 0 sha1 t=72 edb42de4 39859de7 f0667e31 8fc96230 125c24f0
+abc block 0 sha1 t=73 11793f6f edb42de4 ce616779 f0667e31 8fc96230
+abc block 0 sha1 t=74 5ee76897 11793f6f 3b6d0b79 ce616779 f0667e31
+abc block 0 sha1 t=75 63f7dab7 5ee76897 c45e4fdb 3b6d0b79 ce616779
+abc block 0 sha1 t=76 a079b7d9 63f7dab7 d7b9da25 c45e4fdb 3b6d0b79
+abc block 0 sha1 t=77 860d21cc a079b7d9 d8fdf6ad d7b9da25 c45e4fdb
+abc block 0 sha1 t=78 5738d5e1 860d21cc 681e6df6 d8fdf6ad d7b9da25
+abc block 0 sha1 t=79 42541b35 5738d5e1 21834873 681e6df6 d8fdf6ad
+abc sha1 digest a9993e36 4706816a ba3e2571 7850c26c 9cd0d89d differing=0
+448-bit message block 0 sha256 t=00 5d6aebb1 6a09e667 bb67ae85 3c6ef372 fa2a4606 510e527f 9b05688c 1f83d9ab
+448-bit message block 0 sha256 t=01 2f2d5fcf 5d6aebb1 6a09e667 bb67ae85 4eb1cfce fa2a4606 510e527f 9b05688c
+448-bit message block 0 sha256 t=02 97651825 2f2d5fcf 5d6aebb1 6a09e667 62d5c49e 4eb1cfce fa2a4606 510e527f
+448-bit message block 0 sha256 t=03 4a8d64d5 97651825 2f2d5fcf 5d6aebb1 6494841b 62d5c49e 4eb1cfce fa2a4606
+448-bit message block 0 sha256 t=04 f921c212 4a8d64d5 97651825 2f2d5fcf 05c4f88a 6494841b 62d5c49e 4eb1cfce
+448-bit message block 0 sha256 t=05 55c8ef48 f921c212 4a8d64d5 97651825 7ff91c94 05c4f88a 6494841b 62d5c49e
+448-bit message block 0 sha256 t=06 485835b7 55c8ef48 f921c212 4a8d64d5 39a5b2ca 7ff91c94 05c4f88a 6494841b
+448-bit message block 0 sha256 t=07 d237e6db 485835b7 55c8ef48 f921c212 a401d211 39a5b2ca 7ff91c94 05c4f88a
+448-bit message block 0 sha256 t=08 359f2bce d237e6db 485835b7 55c8ef48 c09ffec4 a401d211 39a5b2ca 7ff91c94
+448-bit message block 0 sha256 t=09 3a474b2b 359f2bce d237e6db 485835b7 9037b3b8 c09ffec4 a401d211 39a5b2ca
+448-bit message block 0 sha256 t=10 b8e2b4cb 3a474b2b 359f2bce d237e6db 443ed29e 9037b3b8 c09ffec4 a401d211
+448-bit message block 0 sha256 t=11 1762215c b8e2b4cb 3a474b2b 359f2bce ee1c97a8 443ed29e 9037b3b8 c09ffec4
+448-bit message block 0 sha256 t=12 101a4861 1762215c b8e2b4cb 3a474b2b 839a0fc9 ee1c97a8 443ed29e 9037b3b8
+448-bit message block 0 sha256 t=13 d68e6457 101a4861 1762215c b8e2b4cb 9243f8af 839a0fc9 ee1c97a8 443ed29e
+448-bit message block 0 sha256 t=14 dd16cbb3 d68e6457 101a4861 1762215c 9162aded 9243f8af 839a0fc9 ee1c97a8
+448-bit message block 0 sha256 t=15 c3486194 dd16cbb3 d68e6457 101a4861 1496a54f 9162aded 9243f8af 839a0fc9
+448-bit message block 0 sha256 t=16 b9dcacb1 c3486194 dd16cbb3 d68e6457 d4f64250 1496a54f 9162aded 9243f8af
+448-bit message block 0 sha256 t=17 046a193e b9dcacb1 c3486194 dd16cbb3 885370b6 d4f64250 1496a54f 9162aded
+448-bit message block 0 sha256 t=18 f402f058 046a193e b9dcacb1 c3486194 6f433549 885370b6 d4f64250 1496a54f
+448-bit message block 0 sha256 t=19 2139187b f402f058 046a193e b9dcacb1 7c304206 6f433549 885370b6 d4f64250
+448-bit message block 0 sha256 t=20 d70ac17d 2139187b f402f058 046a193e 7cc6b262 7c304206 6f433549 885370b6
+448-bit message block 0 sha256 t=21 1b2b66b8 d70ac17d 2139187b f402f058 d560b028 7cc6b262 7c304206 6f433549
+448-bit message block 0 sha256 t=22 ae2e2d4f 1b2b66b8 d70ac17d 2139187b f074fc95 d560b028 7cc6b262 7c304206
+448-bit message block 0 sha256 t=23 59fce6b9 ae2e2d4f 1b2b66b8 d70ac17d a2c7d51d f074fc95 d560b028 7cc6b262
+448-bit message block 0 sha256 t=24 4a885065 59fce6b9 ae2e2d4f 1b2b66b8 763597fb a2c7d51d f074fc95 d560b028
+448-bit message block 0 sha256 t=25 573221da 4a885065 59fce6b9 ae2e2d4f 36e74eb4 763597fb a2c7d51d f074fc95
+448-bit message block 0 sha256 t=26 128661da 573221da 4a885065 59fce6b9 1162d575 36e74eb4 763597fb a2c7d51d
+448-bit message block 0 sha256 t=27 73f858af 128661da 573221da 4a885065 e77c797f 1162d575 36e74eb4 763597fb
+448-bit message block 0 sha256 t=28 74bcf468 73f858af 128661da 573221da 72abaecd e77c797f 1162d575 36e74eb4
+448-bit message block 0 sha256 t=29 df7151a0 74bcf468 73f858af 128661da 7629c961 72abaecd e77c797f 1162d575
+448-bit message block 0 sha256 t=30 eb43f3ed df7151a0 74bcf468 73f858af 0635d880 7629c961 72abaecd e77c797f
+448-bit message block 0 sha256 t=31 5581ab07 eb43f3ed df7151a0 74bcf468 df980085 0635d880 7629c961 72abaecd
+448-bit message block 0 sha256 t=32 9fc905c8 5581ab07 eb43f3ed df7151a0 a94d2af1 df980085 0635d880 7629c961
+448-bit message block 0 sha256 t=33 9ce5a62f 9fc905c8 5581ab07 eb43f3ed 6ef3b6bd a94d2af1 df980085 0635d880
+448-bit message block 0 sha256 t=34 1df8e885 9ce5a62f 9fc905c8 5581ab07 2a9e048e 6ef3b6bd a94d2af1 df980085
+448-bit message block 0 sha256 t=35 0786dce8 1df8e885 9ce5a62f 9fc905c8 de2a21d1 2a9e048e 6ef3b6bd a94d2af1
+448-bit message block 0 sha256 t=36 2c55d3a6 0786dce8 1df8e885 9ce5a62f b067c1af de2a21d1 2a9e048e 6ef3b6bd
+448-bit message block 0 sha256 t=37 a985b4be 2c55d3a6 0786dce8 1df8e885 f72bf353 b067c1af de2a21d1 2a9e048e
+448-bit message block 0 sha256 t=38 91ac9d5d a985b4be 2c55d3a6 0786dce8 68d8d590 f72bf353 b067c1af de2a21d1
+448-bit message block 0 sha256 t=39 7e4d30b8 91ac9d5d a985b4be 2c55d3a6 9f5b9b6d 68d8d590 f72bf353 b067c1af
+448-bit message block 0 sha256 t=40 7e056794 7e4d30b8 91ac9d5d a985b4be 423b26c0 9f5b9b6d 68d8d590 f72bf353
+448-bit message block 0 sha256 t=41 508a16ab 7e056794 7e4d30b8 91ac9d5d 45459d97 423b26c0 9f5b9b6d 68d8d590
+448-bit message block 0 sha256 t=42 b62c7013 508a16ab 7e056794 7e4d30b8 80a92a00 45459d97 423b26c0 9f5b9b6d
+448-bit message block 0 sha256 t=43 167361de b62c7013 508a16ab 7e056794 41dd3844 80a92a00 45459d97 423b26c0
+448-bit message block 0 sha256 t=44 de71e2f2 167361de b62c7013 508a16ab ff61c636 41dd3844 80a92a00 45459d97
+448-bit message block 0 sha256 t=45 18f0d19d de71e2f2 167361de b62c7013 6b88472c ff61c636 41dd3844 80a92a00
+448-bit message block 0 sha256 t=46 165be9cd 18f0d19d de71e2f2 167361de a483f080 6b88472c ff61c636 41dd3844
+448-bit message block 0 sha256 t=47 13d82741 165be9cd 18f0d19d de71e2f2 a7802a4d a483f080 6b88472c ff61c636
+448-bit message block 0 sha256 t=48 017b9d99 13d82741 165be9cd 18f0d19d aeb10b60 a7802a4d a483f080 6b88472c
+448-bit message block 0 sha256 t=49 543c99a1 017b9d99 13d82741 165be9cd 16f134b6 aeb10b60 a7802a4d a483f080
+448-bit message block 0 sha256 t=50 758ca97a 543c99a1 017b9d99 13d82741 100cf2ea 16f134b6 aeb10b60 a7802a4d
+448-bit message block 0 sha256 t=51 81c1cde0 758ca97a 543c99a1 017b9d99 5c47eb7b 100cf2ea 16f134b6 aeb10b60
+448-bit message block 0 sha256 t=52 b8d55619 81c1cde0 758ca97a 543c99a1 1c806a61 5c47eb7b 100cf2ea 16f134b6
+448-bit message block 0 sha256 t=53 1d6de87a b8d55619 81c1cde0 758ca97a 3443bed4 1c806a61 5c47eb7b 100cf2ea
+448-bit message block 0 sha256 t=54 f907b313 1d6de87a b8d55619 81c1cde0 61a41711 3443bed4 1c806a61 5c47eb7b
+448-bit message block 0 sha256 t=55 9e57c4a0 f907b313 1d6de87a b8d55619 eec13548 61a41711 3443bed4 1c806a61
+448-bit message block 0 sha256 t=56 71629856 9e57c4a0 f907b313 1d6de87a 2f6c8c4e eec13548 61a41711 3443bed4
+448-bit message block 0 sha256 t=57 7c015a2c 71629856 9e57c4a0 f907b313 cb9d3dd0 2f6c8c4e eec13548 61a41711
+448-bit message block 0 sha256 t=58 921fccb6 7c015a2c 71629856 9e57c4a0 43d8a034 cb9d3dd0 2f6c8c4e eec13548
+448-bit message block 0 sha256 t=59 e18f259a 921fccb6 7c015a2c 71629856 51e15869 43d8a034 cb9d3dd0 2f6c8c4e
+448-bit message block 0 sha256 t=60 bcfce922 e18f259a 921fccb6 7c015a2c 962d8621 51e15869 43d8a034 cb9d3dd0
+448-bit message block 0 sha256 t=61 f6f443f8 bcfce922 e18f259a 921fccb6 acc75916 962d8621 51e15869 43d8a034
+448-bit message block 0 sha256 t=62 86126910 f6f443f8 bcfce922 e18f259a 2fc08f85 acc75916 962d8621 51e15869
+448-bit message block 0 sha256 t=63 1bdc6f6f 86126910 f6f443f8 bcfce922 25d2430a 2fc08f85 acc75916 962d8621
+448-bit message block 1 sha256 t=00 7c20c838 85e655d6 417a1795 3363376a 4670ae6e 76e09589 cac5f811 cc4b32c1
+448-bit message block 1 sha256 t=01 7c3c0f86 7c20c838 85e655d6 417a1795 8c51be64 4670ae6e 76e09589 cac5f811
+448-bit message block 1 sha256 t=02 fd1eebdc 7c3c0f86 7c20c838 85e655d6 af71b9ea 8c51be64 4670ae6e 76e09589
+448-bit message block 1 sha256 t=03 f268faa9 fd1eebdc 7c3c0f86 7c20c838 e20362ef af71b9ea 8c51be64 4670ae6e
+448-bit message block 1 sha256 t=04 185a5d79 f268faa9 fd1eebdc 7c3c0f86 8dff3001 e20362ef af71b9ea 8c51be64
+448-bit message block 1 sha256 t=05 3eeb6c06 185a5d79 f268faa9 fd1eebdc fe20cda6 8dff3001 e20362ef af71b9ea
+448-bit message block 1 sha256 t=06 89bba3f1 3eeb6c06 185a5d79 f268faa9 0a34df03 fe20cda6 8dff3001 e20362ef
+448-bit message block 1 sha256 t=07 bf9a93a0 89bba3f1 3eeb6c06 185a5d79 059abdd1 0a34df03 fe20cda6 8dff3001
+448-bit message block 1 sha256 t=08 2c096744 bf9a93a0 89bba3f1 3eeb6c06 abfa465b 059abdd1 0a34df03 fe20cda6
+448-bit message block 1 sha256 t=09 2d964e86 2c096744 bf9a93a0 89bba3f1 aa27ed82 abfa465b 059abdd1 0a34df03
+448-bit message block 1 sha256 t=10 5b35025b 2d964e86 2c096744 bf9a93a0 10e77723 aa27ed82 abfa465b 059abdd1
+448-bit message block 1 sha256 t=11 5eb4ec40 5b35025b 2d964e86 2c096744 e11b4548 10e77723 aa27ed82 abfa465b
+448-bit message block 1 sha256 t=12 35ee996d 5eb4ec40 5b35025b 2d964e86 5c24e2a2 e11b4548 10e77723 aa27ed82
+448-bit message block 1 sha256 t=13 d74080fa 35ee996d 5eb4ec40 5b35025b 68aa893f 5c24e2a2 e11b4548 10e77723
+448-bit message block 1 sha256 t=14 0cea5cbc d74080fa 35ee996d 5eb4ec40 60356548 68aa893f 5c24e2a2 e11b4548
+448-bit message block 1 sha256 t=15 16a8cc79 0cea5cbc d74080fa 35ee996d 0fcb1f6f 60356548 68aa893f 5c24e2a2
+448-bit message block 1 sha256 t=16 f16f634e 16a8cc79 0cea5cbc d74080fa 8b21cdc1 0fcb1f6f 60356548 68aa893f
+448-bit message block 1 sha256 t=17 23dcb6c2 f16f634e 16a8cc79 0cea5cbc ca9182d3 8b21cdc1 0fcb1f6f 60356548
+448-bit message block 1 sha256 t=18 dcff40fd 23dcb6c2 f16f634e 16a8cc79 69bf7b95 ca9182d3 8b21cdc1 0fcb1f6f
+448-bit message block 1 sha256 t=19 76f1a2bc dcff40fd 23dcb6c2 f16f634e 0dc84bb1 69bf7b95 ca9182d3 8b21cdc1
+448-bit message block 1 sha256 t=20 20aad899 76f1a2bc dcff40fd 23dcb6c2 cc4769f2 0dc84bb1 69bf7b95 ca9182d3
+448-bit message block 1 sha256 t=21 d44dc81a 20aad899 76f1a2bc dcff40fd 5bace62d cc4769f2 0dc84bb1 69bf7b95
+448-bit message block 1 sha256 t=22 f13ae55b d44dc81a 20aad899 76f1a2bc 966aa287 5bace62d cc4769f2 0dc84bb1
+448-bit message block 1 sha256 t=23 a4195b91 f13ae55b d44dc81a 20aad899 eddbd6ed 966aa287 5bace62d cc4769f2
+448-bit message block 1 sha256 t=24 4984fa79 a4195b91 f13ae55b d44dc81a a530d939 eddbd6ed 966aa287 5bace62d
+448-bit message block 1 sha256 t=25 aa6cb982 4984fa79 a4195b91 f13ae55b 0b5eeea4 a530d939 eddbd6ed 966aa287
+448-bit message block 1 sha256 t=26 9450fbbc aa6cb982 4984fa79 a4195b91 09166dda 0b5eeea4 a530d939 eddbd6ed
+448-bit message block 1 sha256 t=27 0d936bab 9450fbbc aa6cb982 4984fa79 6e495d4b 09166dda 0b5eeea4 a530d939
+448-bit message block 1 sha256 t=28 d958b529 0d936bab 9450fbbc aa6cb982 c2fa99b1 6e495d4b 09166dda 0b5eeea4
+448-bit message block 1 sha256 t=29 1cfa5eb0 d958b529 0d936bab 9450fbbc 6c49db9f c2fa99b1 6e495d4b 09166dda
+448-bit message block 1 sha256 t=30 02ef3a5f 1cfa5eb0 d958b529 0d936bab 5da10665 6c49db9f c2fa99b1 6e495d4b
+448-bit message block 1 sha256 t=31 b0eab1c5 02ef3a5f 1cfa5eb0 d958b529 f6d93952 5da10665 6c49db9f c2fa99b1
+448-bit message block 1 sha256 t=32 0bfba73c b0eab1c5 02ef3a5f 1cfa5eb0 8b99e3a9 f6d93952 5da10665 6c49db9f
+448-bit message block 1 sha256 t=33 4bd1df96 0bfba73c b0eab1c5 02ef3a5f 905e44ac 8b99e3a9 f6d93952 5da10665
+448-bit message block 1 sha256 t=34 9907f1b6 4bd1df96 0bfba73c b0eab1c5 66c3043d 905e44ac 8b99e3a9 f6d93952
+448-bit message block 1 sha256 t=35 ecde4e0d 9907f1b6 4bd1df96 0bfba73c 5dc119e6 66c3043d 905e44ac 8b99e3a9
+448-bit message block 1 sha256 t=36 2f11c939 ecde4e0d 9907f1b6 4bd1df96 fed4ce1d 5dc119e6 66c3043d 905e44ac
+448-bit message block 1 sha256 t=37 d949682b 2f11c939 ecde4e0d 9907f1b6 32d99008 fed4ce1d 5dc119e6 66c3043d
+448-bit message block 1 sha256 t=38 adca7a96 d949682b 2f11c939 ecde4e0d c6cce4ff 32d99008 fed4ce1d 5dc119e6
+448-bit message block 1 sha256 t=39 221b8a5a adca7a96 d949682b 2f11c939 0b82c5eb c6cce4ff 32d99008 fed4ce1d
+448-bit message block 1 sha256 t=40 12d97845 221b8a5a adca7a96 d949682b e4213ca2 0b82c5eb c6cce4ff 32d99008
+448-bit message block 1 sha256 t=41 2c794876 12d97845 221b8a5a adca7a96 ff6759ba e4213ca2 0b82c5eb c6cce4ff
+448-bit message block 1 sha256 t=42 8300fca2 2c794876 12d97845 221b8a5a e0e3457c ff6759ba e4213ca2 0b82c5eb
+448-bit message block 1 sha256 t=43 f2ad6322 8300fca2 2c794876 12d97845 cc48c7f3 e0e3457c ff6759ba e4213ca2
+448-bit message block 1 sha256 t=44 0f154e11 f2ad6322 8300fca2 2c794876 6f9517cb cc48c7f3 e0e3457c ff6759ba
+448-bit message block 1 sha256 t=45 104a7db4 0f154e11 f2ad6322 8300fca2 5348e8f6 6f9517cb cc48c7f3 e0e3457c
+448-bit message block 1 sha256 t=46 0b3303a7 104a7db4 0f154e11 f2ad6322 bbe1c39a 5348e8f6 6f9517cb cc48c7f3
+448-bit message block 1 sha256 t=47 d7354d5b 0b3303a7 104a7db4 0f154e11 aad55b6b bbe1c39a 5348e8f6 6f9517cb
+448-bit message block 1 sha256 t=48 b736d7a6 d7354d5b 0b3303a7 104a7db4 68f25260 aad55b6b bbe1c39a 5348e8f6
+448-bit message block 1 sha256 t=49 2748e5ec b736d7a6 d7354d5b 0b3303a7 d4b58576 68f25260 aad55b6b bbe1c39a
+448-bit message block 1 sha256 t=50 d8aabcf9 2748e5ec b736d7a6 d7354d5b 27844711 d4b58576 68f25260 aad55b6b
+448-bit message block 1 sha256 t=51 1a6bcf6a d8aabcf9 2748e5ec b736d7a6 ff5e99d0 27844711 d4b58576 68f25260
+448-bit message block 1 sha256 t=52 4eca6fa0 1a6bcf6a d8aabcf9 2748e5ec 989ed071 ff5e99d0 27844711 d4b58576
+448-bit message block 1 sha256 t=53 ec02560a 4eca6fa0 1a6bcf6a d8aabcf9 7151df8e 989ed071 ff5e99d0 27844711
+448-bit message block 1 sha256 t=54 d9f0c115 ec02560a 4eca6fa0 1a6bcf6a 624150c4 7151df8e 989ed071 ff5e99d0
+448-bit message block 1 sha256 t=55 92952710 d9f0c115 ec02560a 4eca6fa0 226806d6 624150c4 7151df8e 989ed071
+448-bit message block 1 sha256 t=56 20d4d0e4 92952710 d9f0c115 ec02560a 4e515a4d 226806d6 624150c4 7151df8e
+448-bit message block 1 sha256 t=57 4348eb1f 20d4d0e4 92952710 d9f0c115 c21eddf9 4e515a4d 226806d6 624150c4
+448-bit message block 1 sha256 t=58 286fe5f0 4348eb1f 20d4d0e4 92952710 54076664 c21eddf9 4e515a4d 226806d6
+448-bit message block 1 sha256 t=59 1c4cddd9 286fe5f0 4348eb1f 20d4d0e4 f487a853 54076664 c21eddf9 4e515a4d
+448-bit message block 1 sha256 t=60 a9f181dd 1c4cddd9 286fe5f0 4348eb1f 27ccb387 f487a853 54076664 c21eddf9
+448-bit message block 1 sha256 t=61 b25cef29 a9f181dd 1c4cddd9 286fe5f0 2aa1bb13 27ccb387 f487a853 54076664
+448-bit message block 1 sha256 t=62 908c2123 b25cef29 a9f181dd 1c4cddd9 9a392956 2aa1bb13 27ccb387 f487a853
+448-bit message block 1 sha256 t=63 9ea7148b 908c2123 b25cef29 a9f181dd 2c5c4ed0 9a392956 2aa1bb13 27ccb387
+448-bit message sha256 digest 248d6a61 d20638b8 e5c02693 0c3e6039 a33ce459 64ff2167 f6ecedd4 19db06c1 differing=0
+448-bit message block 0 sha1 t=00 0116fc17 67452301 7bf36ae2 98badcfe 10325476
+448-bit message block 0 sha1 t=01 ebf3b452 0116fc17 59d148c0 7bf36ae2 98badcfe
+448-bit message block 0 sha1 t=02 5109913a ebf3b452 c045bf05 59d148c0 7bf36ae2
+448-bit message block 0 sha1 t=03 2c4f6eac 5109913a bafced14 c045bf05 59d148c0
+448-bit message block 0 sha1 t=04 33f4ae5b 2c4f6eac 9442644e bafced14 c045bf05
+448-bit message block 0 sha1 t=05 96b85189 33f4ae5b 0b13dbab 9442644e bafced14
+448-bit message block 0 sha1 t=06 db04cb58 96b85189 ccfd2b96 0b13dbab 9442644e
+448-bit message block 0 sha1 t=07 45833f0f db04cb58 65ae1462 ccfd2b96 0b13dbab
+448-bit message block 0 sha1 t=08 c565c35e 45833f0f 36c132d6 65ae1462 ccfd2b96
+448-bit message block 0 sha1 t=09 6350afda c565c35e d160cfc3 36c132d6 65ae1462
+448-bit message block 0 sha1 t=10 8993ea77 6350afda b15970d7 d160cfc3 36c132d6
+448-bit message block 0 sha1 t=11 e19ecaa2 8993ea77 98d42bf6 b15970d7 d160cfc3
+448-bit message block 0 sha1 t=12 8603481e e19ecaa2 e264fa9d 98d42bf6 b15970d7
+448-bit message block 0 sha1 t=13 32f94a85 8603481e b867b2a8 e264fa9d 98d42bf6
+448-bit message block 0 sha1 t=14 b2e7a8be 32f94a85 a180d207 b867b2a8 e264fa9d
+448-bit message block 0 sha1 t=15 42637e39 b2e7a8be 4cbe52a1 a180d207 b867b2a8
+448-bit message block 0 sha1 t=16 6b068048 42637e39 acb9ea2f 4cbe52a1 a180d207
+448-bit message block 0 sha1 t=17 426b9c35 6b068048 5098df8e acb9ea2f 4cbe52a1
+448-bit message block 0 sha1 t=18 944b1bd1 426b9c35 1ac1a012 5098df8e acb9ea2f
+448-bit message block 0 sha1 t=19 6c445652 944b1bd1 509ae70d 1ac1a012 5098df8e
+448-bit message block 0 sha1 t=20 95836da5 6c445652 6512c6f4 509ae70d 1ac1a012
+448-bit message block 0 sha1 t=21 09511177 95836da5 9b111594 6512c6f4 509ae70d
+448-bit message block 0 sha1 t=22 e2b92dc4 09511177 6560db69 9b111594 6512c6f4
+448-bit message block 0 sha1 t=23 fd224575 e2b92dc4 c254445d 6560db69 9b111594
+448-bit message block 0 sha1 t=24 eeb82d9a fd224575 38ae4b71 c254445d 6560db69
+448-bit message block 0 sha1 t=25 5a142c1a eeb82d9a 7f48915d 38ae4b71 c254445d
+448-bit message block 0 sha1 t=26 2972f7c7 5a142c1a bbae0b66 7f48915d 38ae4b71
+448-bit message block 0 sha1 t=27 d526a644 2972f7c7 96850b06 bbae0b66 7f48915d
+448-bit message block 0 sha1 t=28 e1122421 d526a644 ca5cbdf1 96850b06 bbae0b66
+448-bit message block 0 sha1 t=29 05b457b2 e1122421 3549a991 ca5cbdf1 96850b06
+448-bit message block 0 sha1 t=30 a9c84bec 05b457b2 78448908 3549a991 ca5cbdf1
+448-bit message block 0 sha1 t=31 52e31f60 a9c84bec 816d15ec 78448908 3549a991
+448-bit message block 0 sha1 t=32 5af3242c 52e31f60 2a7212fb 816d15ec 78448908
+448-bit message block 0 sha1 t=33 31c756a9 5af3242c 14b8c7d8 2a7212fb 816d15ec
+448-bit message block 0 sha1 t=34 e9ac987c 31c756a9 16bcc90b 14b8c7d8 2a7212fb
+448-bit message block 0 sha1 t=35 ab7c32ee e9ac987c 4c71d5aa 16bcc90b 14b8c7d8
+448-bit message block 0 sha1 t=36 5933fc99 ab7c32ee 3a6b261f 4c71d5aa 16bcc90b
+448-bit message block 0 sha1 t=37 43f87ae9 5933fc99 aadf0cbb 3a6b261f 4c71d5aa
+448-bit message block 0 sha1 t=38 24957f22 43f87ae9 564cff26 aadf0cbb 3a6b261f
+448-bit message block 0 sha1 t=39 adeb7478 24957f22 50fe1eba 564cff26 aadf0cbb
+448-bit message block 0 sha1 t=40 d70e5010 adeb7478 89255fc8 50fe1eba 564cff26
+448-bit message block 0 sha1 t=41 79bcfb08 d70e5010 2b7add1e 89255fc8 50fe1eba
+448-bit message block 0 sha1 t=42 f9bcb8de 79bcfb08 35c39404 2b7add1e 89255fc8
+448-bit message block 0 sha1 t=43 633e9561 f9bcb8de 1e6f3ec2 35c39404 2b7add1e
+448-bit message block 0 sha1 t=44 98c1ea64 633e9561 be6f2e37 1e6f3ec2 35c39404
+448-bit message block 0 sha1 t=45 c6ea241e 98c1ea64 58cfa558 be6f2e37 1e6f3ec2
+448-bit message block 0 sha1 t=46 a2ad4f02 c6ea241e 26307a99 58cfa558 be6f2e37
+448-bit message block 0 sha1 t=47 c8a69090 a2ad4f02 b1ba8907 26307a99 58cfa558
+448-bit message block 0 sha1 t=48 88341600 c8a69090 a8ab53c0 b1ba8907 26307a99
+448-bit message block 0 sha1 t=49 7e846f58 88341600 3229a424 a8ab53c0 b1ba8907
+448-bit message block 0 sha1 t=50 86e358ba 7e846f58 220d0580 3229a424 a8ab53c0
+448-bit message block 0 sha1 t=51 8d2e76c8 86e358ba 1fa11bd6 220d0580 3229a424
+448-bit message block 0 sha1 t=52 ce892e10 8d2e76c8 a1b8d62e 1fa11bd6 220d0580
+448-bit message block 0 sha1 t=53 edea95b1 ce892e10 234b9db2 a1b8d62e 1fa11bd6
+448-bit message block 0 sha1 t=54 36d1230a edea95b1 33a24b84 234b9db2 a1b8d62e
+448-bit message block 0 sha1 t=55 776c3910 36d1230a 7b7aa56c 33a24b84 234b9db2
+448-bit message block 0 sha1 t=56 a681b723 776c3910 8db448c2 7b7aa56c 33a24b84
+448-bit message block 0 sha1 t=57 ac0a794f a681b723 1ddb0e44 8db448c2 7b7aa56c
+448-bit message block 0 sha1 t=58 f03d3782 ac0a794f e9a06dc8 1ddb0e44 8db448c2
+448-bit message block 0 sha1 t=59 9ef775c3 f03d3782 eb029e53 e9a06dc8 1ddb0e44
+448-bit message block 0 sha1 t=60 36254b13 9ef775c3 bc0f4de0 eb029e53 e9a06dc8
+448-bit message block 0 sha1 t=61 4080d4dc 36254b13 e7bddd70 bc0f4de0 eb029e53
+448-bit message block 0 sha1 t=62 2bfaf7a8 4080d4dc cd8952c4 e7bddd70 bc0f4de0
+448-bit message block 0 sha1 t=63 513f9ca0 2bfaf7a8 10203537 cd8952c4 e7bddd70
+448-bit message block 0 sha1 t=64 e5895c81 513f9ca0 0afebdea 10203537 cd8952c4
+448-bit message block 0 sha1 t=65 1037d2d5 e5895c81 144fe728 0afebdea 10203537
+448-bit message block 0 sha1 t=66 14a82da9 1037d2d5 79625720 144fe728 0afebdea
+448-bit message block 0 sha1 t=67 6d17c9fd 14a82da9 440df4b5 79625720 144fe728
+448-bit message block 0 sha1 t=68 2c7b07bd 6d17c9fd 452a0b6a 440df4b5 79625720
+448-bit message block 0 sha1 t=69 fdf6efff 2c7b07bd 5b45f27f 452a0b6a 440df4b5
+448-bit message block 0 sha1 t=70 112b96e3 fdf6efff 4b1ec1ef 5b45f27f 452a0b6a
+448-bit message block 0 sha1 t=71 84065712 112b96e3 ff7dbbff 4b1ec1ef 5b45f27f
+448-bit message block 0 sha1 t=72 ab89fb71 84065712 c44ae5b8 ff7dbbff 4b1ec1ef
+448-bit message block 0 sha1 t=73 c5210e35 ab89fb71 a10195c4 c44ae5b8 ff7dbbff
+448-bit message block 0 sha1 t=74 352d9f4b c5210e35 6ae27edc a10195c4 c44ae5b8
+448-bit message block 0 sha1 t=75 1a0e0e0a 352d9f4b 7148438d 6ae27edc a10195c4
+448-bit message block 0 sha1 t=76 d0d47349 1a0e0e0a cd4b67d2 7148438d 6ae27edc
+448-bit message block 0 sha1 t=77 ad38620d d0d47349 86838382 cd4b67d2 7148438d
+448-bit message block 0 sha1 t=78 d3ad7c25 ad38620d 74351cd2 86838382 cd4b67d2
+448-bit message block 0 sha1 t=79 8ce34517 d3ad7c25 6b4e1883 74351cd2 86838382
+448-bit message block 1 sha1 t=00 2df257e9 f4286818 b0dec9eb 0408f581 84677148
+448-bit message block 1 sha1 t=01 4d3dc58f 2df257e9 3d0a1a06 b0dec9eb 0408f581
+448-bit message block 1 sha1 t=02 c352bb05 4d3dc58f 4b7c95fa 3d0a1a06 b0dec9eb
+448-bit message block 1 sha1 t=03 eef743c6 c352bb05 d34f7163 4b7c95fa 3d0a1a06
+448-bit message block 1 sha1 t=04 41e34277 eef743c6 70d4aec1 d34f7163 4b7c95fa
+448-bit message block 1 sha1 t=05 5443915c 41e34277 bbbdd0f1 70d4aec1 d34f7163
+448-bit message block 1 sha1 t=06 e7fa0377 5443915c d078d09d bbbdd0f1 70d4aec1
+448-bit message block 1 sha1 t=07 c6946813 e7fa0377 1510e457 d078d09d bbbdd0f1
+448-bit message block 1 sha1 t=08 fdde1de1 c6946813 f9fe80dd 1510e457 d078d09d
+448-bit message block 1 sha1 t=09 b8538aca fdde1de1 f1a51a04 f9fe80dd 1510e457
+448-bit message block 1 sha1 t=10 6ba94f63 b8538aca 7f778778 f1a51a04 f9fe80dd
+448-bit message block 1 sha1 t=11 43a2792f 6ba94f63 ae14e2b2 7f778778 f1a51a04
+448-bit message block 1 sha1 t=12 fecd7bbf 43a2792f daea53d8 ae14e2b2 7f778778
+448-bit message block 1 sha1 t=13 a2604ca8 fecd7bbf d0e89e4b daea53d8 ae14e2b2
+448-bit message block 1 sha1 t=14 258b0baa a2604ca8 ffb35eef d0e89e4b daea53d8
+448-bit message block 1 sha1 t=15 d9772360 258b0baa 2898132a ffb35eef d0e89e4b
+448-bit message block 1 sha1 t=16 5507db6e d9772360 8962c2ea 2898132a ffb35eef
+448-bit message block 1 sha1 t=17 a51b58bc 5507db6e 365dc8d8 8962c2ea 2898132a
+448-bit message block 1 sha1 t=18 c2eb709f a51b58bc 9541f6db 365dc8d8 8962c2ea
+448-bit message block 1 sha1 t=19 d8992153 c2eb709f 2946d62f 9541f6db 365dc8d8
+448-bit message block 1 sha1 t=20 37482f5f d8992153 f0badc27 2946d62f 9541f6db
+448-bit message block 1 sha1 t=21 ee8700bd 37482f5f f6264854 f0badc27 2946d62f
+448-bit message block 1 sha1 t=22 9ad594b9 ee8700bd cdd20bd7 f6264854 f0badc27
+448-bit message block 1 sha1 t=23 8fbaa5b9 9ad594b9 7ba1c02f cdd20bd7 f6264854
+448-bit message block 1 sha1 t=24 88fb5867 8fbaa5b9 66b5652e 7ba1c02f cdd20bd7
+448-bit message block 1 sha1 t=25 eec50521 88fb5867 63eea96e 66b5652e 7ba1c02f
+448-bit message block 1 sha1 t=26 50bce434 eec50521 e23ed619 63eea96e 66b5652e
+448-bit message block 1 sha1 t=27 5c416daf 50bce434 7bb14148 e23ed619 63eea96e
+448-bit message block 1 sha1 t=28 2429be5f 5c416daf 142f390d 7bb14148 e23ed619
+448-bit message block 1 sha1 t=29 0a2fb108 2429be5f d7105b6b 142f390d 7bb14148
+448-bit message block 1 sha1 t=30 17986223 0a2fb108 c90a6f97 d7105b6b 142f390d
+448-bit message block 1 sha1 t=31 8a4af384 17986223 028bec42 c90a6f97 d7105b6b
+448-bit message block 1 sha1 t=32 6b629993 8a4af384 c5e61888 028bec42 c90a6f97
+448-bit message block 1 sha1 t=33 f15f04f3 6b629993 2292bce1 c5e61888 028bec42
+448-bit message block 1 sha1 t=34 295cc25b f15f04f3 dad8a664 2292bce1 c5e61888
+448-bit message block 1 sha1 t=35 696da404 295cc25b fc57c13c dad8a664 2292bce1
+448-bit message block 1 sha1 t=36 cef5ae12 696da404 ca573096 fc57c13c dad8a664
+448-bit message block 1 sha1 t=37 87d5b80c cef5ae12 1a5b6901 ca573096 fc57c13c
+448-bit message block 1 sha1 t=38 84e2a5f2 87d5b80c b3bd6b84 1a5b6901 ca573096
+448-bit message block 1 sha1 t=39 03bb6310 84e2a5f2 21f56e03 b3bd6b84 1a5b6901
+448-bit message block 1 sha1 t=40 c2d8f75f 03bb6310 a138a97c 21f56e03 b3bd6b84
+448-bit message block 1 sha1 t=41 bfb25768 c2d8f75f 00eed8c4 a138a97c 21f56e03
+448-bit message block 1 sha1 t=42 28589152 bfb25768 f0b63dd7 00eed8c4 a138a97c
+448-bit message block 1 sha1 t=43 ec1d3d61 28589152 2fec95da f0b63dd7 00eed8c4
+448-bit message block 1 sha1 t=44 3caed7af ec1d3d61 8a162454 2fec95da f0b63dd7
+448-bit message block 1 sha1 t=45 c3d033ea 3caed7af 7b074f58 8a162454 2fec95da
+448-bit message block 1 sha1 t=46 7316056a c3d033ea cf2bb5eb 7b074f58 8a162454
+448-bit message block 1 sha1 t=47 46f93b68 7316056a b0f40cfa cf2bb5eb 7b074f58
+448-bit message block 1 sha1 t=48 dc8e7f26 46f93b68 9cc5815a b0f40cfa cf2bb5eb
+448-bit message block 1 sha1 t=49 850d411c dc8e7f26 11be4eda 9cc5815a b0f40cfa
+448-bit message block 1 sha1 t=50 7e4672c0 850d411c b7239fc9 11be4eda 9cc5815a
+448-bit message block 1 sha1 t=51 89fbd41d 7e4672c0 21435047 b7239fc9 11be4eda
+448-bit message block 1 sha1 t=52 1797e228 89fbd41d 1f919cb0 21435047 b7239fc9
+448-bit message block 1 sha1 t=53 431d65bc 1797e228 627ef507 1f919cb0 21435047
+448-bit message block 1 sha1 t=54 2bdbb8cb 431d65bc 05e5f88a 627ef507 1f919cb0
+448-bit message block 1 sha1 t=55 6da72e7f 2bdbb8cb 10c7596f 05e5f88a 627ef507
+448-bit message block 1 sha1 t=56 a8495a9b 6da72e7f caf6ee32 10c7596f 05e5f88a
+448-bit message block 1 sha1 t=57 e785655a a8495a9b db69cb9f caf6ee32 10c7596f
+448-bit message block 1 sha1 t=58 5b086c42 e785655a ea1256a6 db69cb9f caf6ee32
+448-bit message block 1 sha1 t=59 a65818f7 5b086c42 b9e15956 ea1256a6 db69cb9f
+448-bit message block 1 sha1 t=60 7aab101b a65818f7 96c21b10 b9e15956 ea1256a6
+448-bit message block 1 sha1 t=61 93614c9c 7aab101b e996063d 96c21b10 b9e15956
+448-bit message block 1 sha1 t=62 f66d9bf4 93614c9c deaac406 e996063d 96c21b10
+448-bit message block 1 sha1 t=63 d504902b f66d9bf4 24d85327 deaac406 e996063d
+448-bit message block 1 sha1 t=64 60a9da62 d504902b 3d9b66fd 24d85327 deaac406
+448-bit message block 1 sha1 t=65 8b687819 60a9da62 f541240a 3d9b66fd 24d85327
+448-bit message block 1 sha1 t=66 083e90c3 8b687819 982a7698 f541240a 3d9b66fd
+448-bit message block 1 sha1 t=67 f6226bbf 083e90c3 62da1e06 982a7698 f541240a
+448-bit message block 1 sha1 t=68 76c0563b f6226bbf c20fa430 62da1e06 982a7698
+448-bit message block 1 sha1 t=69 989dd165 76c0563b fd889aef c20fa430 62da1e06
+448-bit message block 1 sha1 t=70 8b2c7573 989dd165 ddb0158e fd889aef c20fa430
+448-bit message block 1 sha1 t=71 ae1b8e7b 8b2c7573 66277459 ddb0158e fd889aef
+448-bit message block 1 sha1 t=72 ca1840de ae1b8e7b e2cb1d5c 66277459 ddb0158e
+448-bit message block 1 sha1 t=73 16f3babb ca1840de eb86e39e e2cb1d5c 66277459
+448-bit message block 1 sha1 t=74 d28d83ad 16f3babb b2861037 eb86e39e e2cb1d5c
+448-bit message block 1 sha1 t=75 6bc02dfe d28d83ad c5bceeae b2861037 eb86e39e
+448-bit message block 1 sha1 t=76 d3a6e275 6bc02dfe 74a360eb c5bceeae b2861037
+448-bit message block 1 sha1 t=77 da955482 d3a6e275 9af00b7f 74a360eb c5bceeae
+448-bit message block 1 sha1 t=78 58c0aac0 da955482 74e9b89d 9af00b7f 74a360eb
+448-bit message block 1 sha1 t=79 906fd62c 58c0aac0 b6a55520 74e9b89d 9af00b7f
+448-bit message sha1 digest 84983e44 1c3bd26e baae4aa1 f95129e5 e54670f1 differing=0
+64 bytes sha256 digest 39e3d7b6 b5d075d3 7d053ad8 9b24b41b ef4f3c29 760c8444 7cab3f3b e1882241 differing=0
+64 bytes sha1 digest bede92be 29c3874e 1b54ddc7 7988d606 fc857a8e differing=0
