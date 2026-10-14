@@ -7,7 +7,7 @@
    3, 55, 56, 63, 64, 65, 119 and 120 sit on both sides of the padding's
    one-block and two-block edges; 1000 and 100000 cover many blocks.
    Known answers only: the proof is owed. *)
-fun hex_digit {d:nat | d < 16} (d: int d): int =
+fn hex_digit {d:nat | d < 16} (d: int d): int =
   if d < 10 then 48 + d else 87 + d
 
 fun pr {l:agz}{i:nat | i <= 20} .<20 - i>. (o: !$A.arr(byte, l, 20), i: int i): void =
