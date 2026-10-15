@@ -1,1 +1,3 @@
-word-bound-false-variant.bats: 440(line=8, offs=3) -- 463(line=8, offs=26): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(<); S2Evar(high
+function claim
+line 8
+unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(<); S2Evar(high(14466)), S2Eintinf(65535)))

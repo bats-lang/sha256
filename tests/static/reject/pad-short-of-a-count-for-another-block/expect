@@ -1,1 +1,3 @@
-pad-short-of-a-count-for-another-block.bats: 740(line=11, offs=83) -- 747(line=11, offs=90): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(11); S2Eintinf(10)))
+function claim
+line 11
+unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(11); S2Eintinf(10)))

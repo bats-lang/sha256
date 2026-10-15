@@ -1,0 +1,8 @@
+[package]
+name = "sha1-update-of-a-sha256-context"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

@@ -1,0 +1,8 @@
+[package]
+name = "proved-finish-into-20-bytes"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

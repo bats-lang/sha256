@@ -1,0 +1,7 @@
+[package]
+name = "sizes"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"sha256" = ""

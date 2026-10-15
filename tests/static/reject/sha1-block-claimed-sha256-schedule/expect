@@ -1,1 +1,9 @@
-sha1-block-claimed-sha256-schedule.bats: 1378(line=14, offs=41) -- 1382(line=14, offs=45): error(3): the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(SCHEDULE); S2Eapp(S2Ecst(sha1_kind); ), S2Evar(msg
+function claim
+line 14
+the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(SCHEDULE); S2Eapp(S2Ecst(sha1_kind); ), S2Evar(msg(14464)), S2Evar(at(14465)), S2Evar(t(14466)), S2EVar(11866), S2EVar(11867))].
+mismatch of static terms (equal):
+The actual term is: S2Eapp(S2Ecst(sha256_kind); )
+The needed term is: S2Eapp(S2Ecst(sha1_kind); )
+mismatch of static terms (tyleq):
+The actual term is: S2Eapp(S2Ecst(SCHEDULE); S2Eapp(S2Ecst(sha256_kind); ), S2Evar(msg(14464)), S2Evar(at(14465)), S2Evar(t(14466)), S2Evar(w_high(14480)), S2Evar(w_low(14481)))
+The needed term is: S2Eapp(S2Ecst(SCHEDULE); S2Eapp(S2Ecst(sha1_kind); ), S2Evar(msg(14464)), S2Evar(at(14465)), S2Evar(t(14466)), S2EVar(11866->S2Evar(w_high(14480))), S2EVar(11867->S2Evar(w_low(14481))))

@@ -1,0 +1,8 @@
+[package]
+name = "sha1-stopped-claimed-whole"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

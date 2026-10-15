@@ -1,0 +1,7 @@
+function claim
+line 15
+the linear dynamic variable [context$6900(-1)] is no longer available.
+the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(ctx1); S2EVar(11864))].
+mismatch of static terms (tyleq):
+The actual term is: S2Eerrexp()
+The needed term is: S2Eapp(S2Ecst(ctx1); S2EVar(11864))

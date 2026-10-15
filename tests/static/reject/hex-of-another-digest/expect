@@ -1,1 +1,3 @@
-hex-of-another-digest.bats: 689(line=9, offs=3) -- 724(line=9, offs=38): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(chaining
+function claim
+line 9
+unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Evar(chaining$15921$15923$15924(24707)); S2Evar(other(14467))))

@@ -1,0 +1,7 @@
+[package]
+name = "proved"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"sha256" = ""

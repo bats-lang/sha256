@@ -1,8 +1,14 @@
-(* sha256 -- pure ATS2 SHA-256 implementation *)
-(* No C code, no $UNSAFE. 32-bit words are uint: C unsigned arithmetic
-   wraps modulo 2^32 by definition, so no operation overflows (signed
-   int arithmetic would). Assumes a 32-bit unsigned int, as on every
-   bats target (LP64 and ILP32 native, wasm32). *)
+(* sha256 -- SHA-256 and SHA-1 (FIPS 180-4) in Bats
+   No C code, no $UNSAFE, no praxi. Two implementations of SHA-256 sit side
+   by side. hash, init, update and finish (below) are the fast one: 32-bit
+   words are uint, and C unsigned arithmetic wraps modulo 2^32 by definition,
+   so no operation overflows (signed int arithmetic would); it assumes a
+   32-bit unsigned int, as on every bats target (LP64 and ILP32 native,
+   wasm32); it is tested, not proved. proved_hash, proved_init, proved_update
+   and proved_finish, and sha1_digest, run the proved code: a 32-bit word is
+   its two 16-bit halves (arith's ROTR, SHR, ADD32) and the digest is the one
+   the proofs are about (sha256#29). The proved code is about 30 times slower
+   (sha256#34), so the fast API is not replaced by it. *)
 
 #include "share/atspre_staload.hats"
 
@@ -150,9 +156,9 @@ in (MAJ_mk(pah, pal, pbh, pbl, pch, pcl, psh, psl, prh, prl) | @(rh, rl)) end
   : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_0(xh, xl, rh, rl) | @(int rh, int rl))
 
 implement big_sigma_0 (xh, xl) = let
-  val (pa | @(ah, al)) = $AR.rotr(2, xh, xl)
-  val (pb | @(bh, bl)) = $AR.rotr(13, xh, xl)
-  val (pc | @(ch, cl)) = $AR.rotr(22, xh, xl)
+  val (pa | @(ah, al)) = $AR.rotr_fast(2, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr_fast(13, xh, xl)
+  val (pc | @(ch, cl)) = $AR.rotr_fast(22, xh, xl)
   val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
 in (BIG_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
@@ -161,9 +167,9 @@ in (BIG_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
   : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_1(xh, xl, rh, rl) | @(int rh, int rl))
 
 implement big_sigma_1 (xh, xl) = let
-  val (pa | @(ah, al)) = $AR.rotr(6, xh, xl)
-  val (pb | @(bh, bl)) = $AR.rotr(11, xh, xl)
-  val (pc | @(ch, cl)) = $AR.rotr(25, xh, xl)
+  val (pa | @(ah, al)) = $AR.rotr_fast(6, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr_fast(11, xh, xl)
+  val (pc | @(ch, cl)) = $AR.rotr_fast(25, xh, xl)
   val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
 in (BIG_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
@@ -172,8 +178,8 @@ in (BIG_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
   : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_0(xh, xl, rh, rl) | @(int rh, int rl))
 
 implement small_sigma_0 (xh, xl) = let
-  val (pa | @(ah, al)) = $AR.rotr(7, xh, xl)
-  val (pb | @(bh, bl)) = $AR.rotr(18, xh, xl)
+  val (pa | @(ah, al)) = $AR.rotr_fast(7, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr_fast(18, xh, xl)
   val (pc | @(ch, cl)) = $AR.shr(3, xh, xl)
   val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
@@ -183,8 +189,8 @@ in (SMALL_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
   : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_1(xh, xl, rh, rl) | @(int rh, int rl))
 
 implement small_sigma_1 (xh, xl) = let
-  val (pa | @(ah, al)) = $AR.rotr(17, xh, xl)
-  val (pb | @(bh, bl)) = $AR.rotr(19, xh, xl)
+  val (pa | @(ah, al)) = $AR.rotr_fast(17, xh, xl)
+  val (pb | @(bh, bl)) = $AR.rotr_fast(19, xh, xl)
   val (pc | @(ch, cl)) = $AR.shr(10, xh, xl)
   val (psh, psl | @(sh, sl)) = $AR.xor32(ah, al, bh, bl)
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
@@ -428,7 +434,7 @@ fun _schedule_sha1_expand {lw:agz}{words:$A.cells}{msg:$A.cells}{at:nat}{t:nat |
     val (xor1_high, xor1_low | @(x1_high, x1_low)) = $AR.xor32(back3_high, back3_low, back8_high, back8_low)
     val (xor2_high, xor2_low | @(x2_high, x2_low)) = $AR.xor32(x1_high, x1_low, back14_high, back14_low)
     val (xor3_high, xor3_low | @(x3_high, x3_low)) = $AR.xor32(x2_high, x2_low, back16_high, back16_low)
-    val (turned | @(high, low)) = $AR.rotr(31, x3_high, x3_low)
+    val (turned | @(high, low)) = $AR.rotr_fast(31, x3_high, x3_low)
     val (set | array) = word_set(array, 4 * t, high, low)
     prval kept = schedule_array_frame(set, listed)
     prval specified = SCHEDULE_sha1(back3, back8, back14, back16, xor1_high, xor1_low, xor2_high, xor2_low, xor3_high, xor3_low, turned)
@@ -1094,13 +1100,13 @@ implement sha1_k {t} (t) =
     (SHA1_ROUND(t, w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_c_high, new_c_low)) | @(int new_a_high, int new_a_low, int new_c_high, int new_c_low))
 
 implement sha1_round (t, a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, k_high, k_low, w_high, w_low) = let
-  val (turn | @(turn5_high, turn5_low)) = $AR.rotr(27, a_high, a_low)
+  val (turn | @(turn5_high, turn5_low)) = $AR.rotr_fast(27, a_high, a_low)
   val (function | @(f_high, f_low)) = sha1_f(t, b_high, b_low, c_high, c_low, d_high, d_low)
   val (add1 | @(sum1_high, sum1_low)) = $AR.add32(turn5_high, turn5_low, f_high, f_low)
   val (add2 | @(sum2_high, sum2_low)) = $AR.add32(sum1_high, sum1_low, e_high, e_low)
   val (add3 | @(sum3_high, sum3_low)) = $AR.add32(sum2_high, sum2_low, k_high, k_low)
   val (add4 | @(new_a_high, new_a_low)) = $AR.add32(sum3_high, sum3_low, w_high, w_low)
-  val (turn30 | @(new_c_high, new_c_low)) = $AR.rotr(2, b_high, b_low)
+  val (turn30 | @(new_c_high, new_c_low)) = $AR.rotr_fast(2, b_high, b_low)
 in (SHA1_ROUND_mk(turn, function, add1, add2, add3, add4, turn30)
     | @(new_a_high, new_a_low, new_c_high, new_c_low)) end
 
@@ -1179,370 +1185,6 @@ implement sha1_compress {lm}{nm}{msg}{at}{lw}{words}{lc}{chain}{h0_high,h0_low,h
   val (add4 | @(next_h4_high, next_h4_low)) = $AR.add32(h4_high, h4_low, end_e_high, end_e_low)
   val (written | chaining) = five_set(chaining, 0, next_h0_high, next_h0_low, next_h1_high, next_h1_low, next_h2_high, next_h2_low, next_h3_high, next_h3_low, next_h4_high, next_h4_low)
 in (SHA1_BLOCK_mk(rounds, add0, add1, add2, add3, add4), written | @(schedule, chaining)) end
-
-(* ============================================================
-   Round constants (FIPS 180-4, section 4.2.2)
-   ============================================================ *)
-
-fn _k {i:nat | i < 64} (i: int i): uint =
-  if i < 8 then
-    (if i = 0 then 0x428a2f98u else if i = 1 then 0x71374491u
-     else if i = 2 then 0xb5c0fbcfu else if i = 3 then 0xe9b5dba5u
-     else if i = 4 then 0x3956c25bu else if i = 5 then 0x59f111f1u
-     else if i = 6 then 0x923f82a4u else 0xab1c5ed5u)
-  else if i < 16 then
-    (if i = 8 then 0xd807aa98u else if i = 9 then 0x12835b01u
-     else if i = 10 then 0x243185beu else if i = 11 then 0x550c7dc3u
-     else if i = 12 then 0x72be5d74u else if i = 13 then 0x80deb1feu
-     else if i = 14 then 0x9bdc06a7u else 0xc19bf174u)
-  else if i < 24 then
-    (if i = 16 then 0xe49b69c1u else if i = 17 then 0xefbe4786u
-     else if i = 18 then 0x0fc19dc6u else if i = 19 then 0x240ca1ccu
-     else if i = 20 then 0x2de92c6fu else if i = 21 then 0x4a7484aau
-     else if i = 22 then 0x5cb0a9dcu else 0x76f988dau)
-  else if i < 32 then
-    (if i = 24 then 0x983e5152u else if i = 25 then 0xa831c66du
-     else if i = 26 then 0xb00327c8u else if i = 27 then 0xbf597fc7u
-     else if i = 28 then 0xc6e00bf3u else if i = 29 then 0xd5a79147u
-     else if i = 30 then 0x06ca6351u else 0x14292967u)
-  else if i < 40 then
-    (if i = 32 then 0x27b70a85u else if i = 33 then 0x2e1b2138u
-     else if i = 34 then 0x4d2c6dfcu else if i = 35 then 0x53380d13u
-     else if i = 36 then 0x650a7354u else if i = 37 then 0x766a0abbu
-     else if i = 38 then 0x81c2c92eu else 0x92722c85u)
-  else if i < 48 then
-    (if i = 40 then 0xa2bfe8a1u else if i = 41 then 0xa81a664bu
-     else if i = 42 then 0xc24b8b70u else if i = 43 then 0xc76c51a3u
-     else if i = 44 then 0xd192e819u else if i = 45 then 0xd6990624u
-     else if i = 46 then 0xf40e3585u else 0x106aa070u)
-  else if i < 56 then
-    (if i = 48 then 0x19a4c116u else if i = 49 then 0x1e376c08u
-     else if i = 50 then 0x2748774cu else if i = 51 then 0x34b0bcb5u
-     else if i = 52 then 0x391c0cb3u else if i = 53 then 0x4ed8aa4au
-     else if i = 54 then 0x5b9cca4fu else 0x682e6ff3u)
-  else
-    (if i = 56 then 0x748f82eeu else if i = 57 then 0x78a5636fu
-     else if i = 58 then 0x84c87814u else if i = 59 then 0x8cc70208u
-     else if i = 60 then 0x90befffau else if i = 61 then 0xa4506cebu
-     else if i = 62 then 0xbef9a3f7u else 0xc67178f2u)
-
-(* ============================================================
-   Block compression (FIPS 180-4, section 6.2.2)
-   ============================================================ *)
-
-(* Processes data[bo, bo + 64) into h, using w as the message schedule. *)
-fn _compress {ld:agz}{nd:pos}{bo:nat | bo + 64 <= nd}{lw:agz}{lh:agz}
-  (data: !$A.arr(byte, ld, nd), bo: int bo,
-   w: !$A.arr(uint, lw, 64), h: !$A.arr(uint, lh, 8)): void = let
-  fun load {t:nat | t <= 16} .<16 - t>.
-    (data: !$A.arr(byte, ld, nd), w: !$A.arr(uint, lw, 64), t: int t): void =
-    if t >= 16 then ()
-    else let
-      val o = bo + 4 * t
-      val b0 = _u(byte2int0($A.get<byte>(data, o)))
-      val b1 = _u(byte2int0($A.get<byte>(data, o + 1)))
-      val b2 = _u(byte2int0($A.get<byte>(data, o + 2)))
-      val b3 = _u(byte2int0($A.get<byte>(data, o + 3)))
-      val () = $A.set<uint>(w, t, (b0 << 24) lor (b1 << 16) lor (b2 << 8) lor b3)
-    in load(data, w, t + 1) end
-  fun expand {t:int | 16 <= t; t <= 64} .<64 - t>.
-    (w: !$A.arr(uint, lw, 64), t: int t): void =
-    if t >= 64 then ()
-    else let
-      val v = _ssig1($A.get<uint>(w, t - 2)) + $A.get<uint>(w, t - 7)
-            + _ssig0($A.get<uint>(w, t - 15)) + $A.get<uint>(w, t - 16)
-      val () = $A.set<uint>(w, t, v)
-    in expand(w, t + 1) end
-  fun rounds {t:nat | t <= 64} .<64 - t>.
-    (w: !$A.arr(uint, lw, 64), t: int t,
-     a: uint, b: uint, c: uint, d: uint,
-     e: uint, f: uint, g: uint, hh: uint): @(uint, uint, uint, uint, uint, uint, uint, uint) =
-    if t >= 64 then @(a, b, c, d, e, f, g, hh)
-    else let
-      val t1 = hh + _bsig1(e) + _ch(e, f, g) + _k(t) + $A.get<uint>(w, t)
-      val t2 = _bsig0(a) + _maj(a, b, c)
-    in rounds(w, t + 1, t1 + t2, a, b, c, d + t1, e, f, g) end
-  val () = load(data, w, 0)
-  val () = expand(w, 16)
-  val h0 = $A.get<uint>(h, 0) val h1 = $A.get<uint>(h, 1)
-  val h2 = $A.get<uint>(h, 2) val h3 = $A.get<uint>(h, 3)
-  val h4 = $A.get<uint>(h, 4) val h5 = $A.get<uint>(h, 5)
-  val h6 = $A.get<uint>(h, 6) val h7 = $A.get<uint>(h, 7)
-  val @(a, b, c, d, e, f, g, hh) = rounds(w, 0, h0, h1, h2, h3, h4, h5, h6, h7)
-  val () = $A.set<uint>(h, 0, h0 + a) val () = $A.set<uint>(h, 1, h1 + b)
-  val () = $A.set<uint>(h, 2, h2 + c) val () = $A.set<uint>(h, 3, h3 + d)
-  val () = $A.set<uint>(h, 4, h4 + e) val () = $A.set<uint>(h, 5, h5 + f)
-  val () = $A.set<uint>(h, 6, h6 + g) val () = $A.set<uint>(h, 7, h7 + hh)
-in end
-
-(* The one or two padding blocks in pad[0, last). *)
-fn _compress_pad {lp,lw,lh:agz}{e:int | e == 64 || e == 128}
-  (pad: !$A.arr(byte, lp, 128), last: int e,
-   w: !$A.arr(uint, lw, 64), h: !$A.arr(uint, lh, 8)): void = let
-  val () = _compress(pad, 0, w, h)
-in if last = 128 then _compress(pad, 64, w, h) else () end
-
-(* ============================================================
-   Output
-   ============================================================ *)
-
-(* The low byte of x. *)
-fn _byte (x: uint): [v:nat | v < 256] int v =
-  $AR.low_byte(g0uint2int_uint_int(x land 0xffu))
-
-(* The hex digit of d < 16. *)
-fn _hex {d:nat | d < 16} (d: int d): [c:nat | c < 256] int c =
-  if d < 10 then d + 48 else d + 87
-
-(* Writes x as 8 hex digits at out[p, p + 8). *)
-fn _put_word {lo:agz}{p:nat | p + 8 <= 64}
-  (out: !$A.arr(byte, lo, 64), p: int p, x: uint): void = let
-  fun loop {i:nat | i <= 8} .<8 - i>.
-    (out: !$A.arr(byte, lo, 64), i: int i): void =
-    if i >= 8 then ()
-    else let
-      val v = _byte(x >> (28 - 4 * i))
-      val hi = v / 16
-      val () = $A.set<byte>(out, p + i, $A.int2byte(_hex(v - 16 * hi)))
-    in loop(out, i + 1) end
-in loop(out, 0) end
-
-(* ============================================================
-   Incremental hash
-   ============================================================ *)
-
-implement init () = let
-  val h = $A.alloc<uint>(8)
-  val () = $A.set<uint>(h, 0, 0x6a09e667u)
-  val () = $A.set<uint>(h, 1, 0xbb67ae85u)
-  val () = $A.set<uint>(h, 2, 0x3c6ef372u)
-  val () = $A.set<uint>(h, 3, 0xa54ff53au)
-  val () = $A.set<uint>(h, 4, 0x510e527fu)
-  val () = $A.set<uint>(h, 5, 0x9b05688cu)
-  val () = $A.set<uint>(h, 6, 0x1f83d9abu)
-  val () = $A.set<uint>(h, 7, 0x5be0cd19u)
-in ctx_mk(h, $A.alloc<uint>(64), $A.alloc<byte>(64), 0, 0u, 0u) end
-
-(* data[i, k) appended to the block in buf[0, b), compressing each block
-   as it fills; the bytes left in the block *)
-fun _fill {lh,lw,lb,ld:agz}{n:pos}{k:nat | k <= n}{i:nat | i <= k}{b:nat | b < 64}
-  .<k - i>.
-  (h: !$A.arr(uint, lh, 8), w: !$A.arr(uint, lw, 64), buf: !$A.arr(byte, lb, 64),
-   data: !$A.arr(byte, ld, n), k: int k, i: int i, b: int b)
-  : [b2:nat | b2 < 64] int b2 =
-  if i >= k then b
-  else let
-    val () = $A.set<byte>(buf, b, $A.get<byte>(data, i))
-  in
-    if b + 1 >= 64 then let
-      val () = _compress(buf, 0, w, h)
-    in _fill(h, w, buf, data, k, i + 1, 0) end
-    else _fill(h, w, buf, data, k, i + 1, b + 1)
-  end
-
-implement update {l}{n}{k} (c, data, len) = let
-  val+ @ctx_mk(h, w, buf, b, hi, lo) = c
-  val () = b := _fill(h, w, buf, data, len, 0, b)
-  val nlo = lo + _u(len)
-  val () = (if nlo < lo then hi := hi + 1u else ())
-  val () = lo := nlo
-  prval () = fold@(c)
-in end
-
-implement finish {lo} (c, out) = let
-  val+ ~ctx_mk(h, w, buf, tail, nhi, nlo) = c
-  (* The tail, 0x80, zeros and the 64-bit big-endian bit length, in one
-     or two blocks. alloc zeroes the buffer. *)
-  val pad = $A.alloc<byte>(128)
-  fun copy {lp,lb:agz}{t:nat | t < 64}{i:nat | i <= t} .<t - i>.
-    (buf: !$A.arr(byte, lb, 64), pad: !$A.arr(byte, lp, 128), t: int t, i: int i): void =
-    if i >= t then ()
-    else let
-      val () = $A.set<byte>(pad, i, $A.get<byte>(buf, i))
-    in copy(buf, pad, t, i + 1) end
-  val () = copy(buf, pad, tail, 0)
-  val () = $A.set<byte>(pad, tail, $A.int2byte(128))
-  val last = (if tail + 9 > 64 then 128 else 64): [e:int | e == 64 || e == 128] int e
-  val bhi = (nhi << 3) lor (nlo >> 29)
-  val blo = nlo << 3
-  val () = $A.set<byte>(pad, last - 8, $A.int2byte(_byte(bhi >> 24)))
-  val () = $A.set<byte>(pad, last - 7, $A.int2byte(_byte(bhi >> 16)))
-  val () = $A.set<byte>(pad, last - 6, $A.int2byte(_byte(bhi >> 8)))
-  val () = $A.set<byte>(pad, last - 5, $A.int2byte(_byte(bhi)))
-  val () = $A.set<byte>(pad, last - 4, $A.int2byte(_byte(blo >> 24)))
-  val () = $A.set<byte>(pad, last - 3, $A.int2byte(_byte(blo >> 16)))
-  val () = $A.set<byte>(pad, last - 2, $A.int2byte(_byte(blo >> 8)))
-  val () = $A.set<byte>(pad, last - 1, $A.int2byte(_byte(blo)))
-  val () = _compress_pad(pad, last, w, h)
-  fun put {lh:agz}{j:nat | j <= 8} .<8 - j>.
-    (out: !$A.arr(byte, lo, 64), h: !$A.arr(uint, lh, 8), j: int j): void =
-    if j >= 8 then ()
-    else let val () = _put_word(out, 8 * j, $A.get<uint>(h, j)) in put(out, h, j + 1) end
-  val () = put(out, h, 0)
-  val () = $A.free<byte>(pad)
-  val () = $A.free<byte>(buf)
-  val () = $A.free<uint>(w)
-  val () = $A.free<uint>(h)
-in end
-
-(* ============================================================
-   Main hash
-   ============================================================ *)
-
-implement hash {l}{n}{lo} (data, data_len, out) = let
-  val c = init()
-  val () = update(c, data, data_len)
-in finish(c, out) end
-
-(* ============================================================
-   SHA-1 (FIPS 180-4, section 6.1), beside SHA-256
-
-   Written, not proved: its tests are known answers (tests/dynamic/sha1).
-   The proved version is sha1_digest_proved (below, stage D), which takes
-   an array whose cells the types know and gives DIGEST1; this one waits
-   for stage E to run the proved code. SHA-1 is not fit to keep
-   anything secret; it is here for the one thing EPUB asks of it, the key
-   of the IDPF font obfuscation (quire#562).
-   ============================================================ *)
-
-
-(* The SHA-1 of data[0, data_len) as its 20 bytes, in out *)
-#pub fn sha1_digest {l:agz}{n:pos}{data_len:pos | data_len <= n}{lo:agz}
-  (data: !$A.borrow(byte, l, n), data_len: int data_len, out: !$A.arr(byte, lo, 20)): void
-
-fn _sha1_rotl {k:int | 0 < k; k < 32} (x: uint, k: int k): uint =
-  (x << k) lor (x >> (32 - k))
-
-fn _sha1_word (x: int): uint = g0int2uint_int_uint(x)
-
-(* The low byte of x *)
-fn _sha1_byte (x: uint): [v:nat | v < 256] int v =
-  $AR.low_byte(g0uint2int_uint_int(x land 0xffu))
-
-(* The constant of round t (FIPS 180-4, section 4.2.1) *)
-fn _sha1_constant {t:nat | t < 80} (t: int t): uint =
-  if t < 20 then 0x5a827999u
-  else if t < 40 then 0x6ed9eba1u
-  else if t < 60 then 0x8f1bbcdcu
-  else 0xca62c1d6u
-
-(* The function of round t (section 4.1.1) *)
-fn _sha1_mix {t:nat | t < 80} (t: int t, b: uint, c: uint, d: uint): uint =
-  if t < 20 then (b land c) lor ((lnot b) land d)
-  else if t < 40 then b lxor c lxor d
-  else if t < 60 then (b land c) lor (b land d) lor (c land d)
-  else b lxor c lxor d
-
-(* The five words of the hash sha1_state *)
-typedef sha1_state = @(uint, uint, uint, uint, uint)
-
-(* Processes the block data[block_at, block_at + 64) into the sha1_state, with w as the
-   message schedule (section 6.1.2) *)
-fn _sha1_compress {ld:agz}{nd:pos}{block_at:nat | block_at + 64 <= nd}{lw:agz}
-  (data: !$A.arr(byte, ld, nd), block_at: int block_at,
-   w: !$A.arr(uint, lw, 80), h: sha1_state): sha1_state = let
-  fun load {t:nat | t <= 16} .<16 - t>.
-    (data: !$A.arr(byte, ld, nd), w: !$A.arr(uint, lw, 80), t: int t): void =
-    if t >= 16 then ()
-    else let
-      val at = block_at + 4 * t
-      val byte0 = _sha1_word(byte2int0($A.get<byte>(data, at)))
-      val byte1 = _sha1_word(byte2int0($A.get<byte>(data, at + 1)))
-      val byte2 = _sha1_word(byte2int0($A.get<byte>(data, at + 2)))
-      val byte3 = _sha1_word(byte2int0($A.get<byte>(data, at + 3)))
-      val () = $A.set<uint>(w, t, (byte0 << 24) lor (byte1 << 16) lor (byte2 << 8) lor byte3)
-    in load(data, w, t + 1) end
-  fun expand {t:int | 16 <= t; t <= 80} .<80 - t>.
-    (w: !$A.arr(uint, lw, 80), t: int t): void =
-    if t >= 80 then ()
-    else let
-      val mixed = $A.get<uint>(w, t - 3) lxor $A.get<uint>(w, t - 8) lxor $A.get<uint>(w, t - 14) lxor $A.get<uint>(w, t - 16)
-      val () = $A.set<uint>(w, t, _sha1_rotl(mixed, 1))
-    in expand(w, t + 1) end
-  fun rounds {t:nat | t <= 80} .<80 - t>.
-    (w: !$A.arr(uint, lw, 80), t: int t, a: uint, b: uint, c: uint, d: uint, e: uint): sha1_state =
-    if t >= 80 then @(a, b, c, d, e)
-    else let
-      val temporary = _sha1_rotl(a, 5) + _sha1_mix(t, b, c, d) + e + _sha1_constant(t) + $A.get<uint>(w, t)
-    in rounds(w, t + 1, temporary, a, _sha1_rotl(b, 30), c, d) end
-  val () = load(data, w, 0)
-  val () = expand(w, 16)
-  val @(h0, h1, h2, h3, h4) = h
-  val @(a, b, c, d, e) = rounds(w, 0, h0, h1, h2, h3, h4)
-in @(h0 + a, h1 + b, h2 + c, h3 + d, h4 + e) end
-
-(* data[from, stop) appended to the block in block[0, filled), each block
-   compressed as it fills; the bytes left in the block, and the sha1_state *)
-fun _sha1_fill {lw,lb,ld:agz}{n:pos}{stop:nat | stop <= n}{from:nat | from <= stop}{filled:nat | filled < 64} .<stop - from>.
-  (h: sha1_state, w: !$A.arr(uint, lw, 80), block: !$A.arr(byte, lb, 64),
-   data: !$A.borrow(byte, ld, n), stop: int stop, from: int from, filled: int filled): @([left:nat | left < 64] int left, sha1_state) =
-  if from >= stop then @(filled, h)
-  else let
-    val () = $A.set<byte>(block, filled, $A.read<byte>(data, from))
-  in
-    if filled + 1 >= 64 then let
-      val next = _sha1_compress(block, 0, w, h)
-    in _sha1_fill(next, w, block, data, stop, from + 1, 0) end
-    else _sha1_fill(h, w, block, data, stop, from + 1, filled + 1)
-  end
-
-(* The word x as four bytes at out[at, at + 4), the high one first *)
-fn _sha1_put_word {lo:agz}{at:nat | at + 4 <= 20} (out: !$A.arr(byte, lo, 20), at: int at, x: uint): void = let
-  val () = $A.set<byte>(out, at, $A.int2byte(_sha1_byte(x >> 24)))
-  val () = $A.set<byte>(out, at + 1, $A.int2byte(_sha1_byte(x >> 16)))
-  val () = $A.set<byte>(out, at + 2, $A.int2byte(_sha1_byte(x >> 8)))
-in $A.set<byte>(out, at + 3, $A.int2byte(_sha1_byte(x))) end
-
-(* The one or two blocks of padding in padding[0, last), compressed into the sha1_state *)
-fn _sha1_compress_padding {lp,lw:agz}{last:int | last == 64 || last == 128}
-  (padding: !$A.arr(byte, lp, 128), last: int last, w: !$A.arr(uint, lw, 80), h: sha1_state): sha1_state = let
-  val first = _sha1_compress(padding, 0, w, h)
-in if last = 128 then _sha1_compress(padding, 64, w, first) else first end
-
-(* The buffers of a digest given back *)
-fn _sha1_release {lp,lb,lw:agz} (padding: $A.arr(byte, lp, 128), block: $A.arr(byte, lb, 64), w: $A.arr(uint, lw, 80)): void = let
-  val () = $A.free<byte>(padding)
-  val () = $A.free<byte>(block)
-in $A.free<uint>(w) end
-
-fn _sha1_digest {l:agz}{n:pos}{data_len:pos | data_len <= n}{lo:agz}
-  (data: !$A.borrow(byte, l, n), data_len: int data_len, out: !$A.arr(byte, lo, 20)): void = let
-  val w = $A.alloc<uint>(80): [lw:agz] $A.arr(uint, lw, 80)
-  val block = $A.alloc<byte>(64): [lb:agz] $A.arr(byte, lb, 64)
-  val initial = @(0x67452301u, 0xefcdab89u, 0x98badcfeu, 0x10325476u, 0xc3d2e1f0u): sha1_state
-  val @(tail, filled_state) = _sha1_fill(initial, w, block, data, data_len, 0, 0)
-  (* the tail, 0x80, zeros and the length in bits as 64 bits, big endian,
-     in one block or two (alloc zeroes what it gives) *)
-  val padding = $A.alloc<byte>(128): [lp:agz] $A.arr(byte, lp, 128)
-  fun copy {lp,lb:agz}{tail:nat | tail < 64}{i:nat | i <= tail} .<tail - i>.
-    (block: !$A.arr(byte, lb, 64), padding: !$A.arr(byte, lp, 128), tail: int tail, i: int i): void =
-    if i >= tail then ()
-    else let
-      val () = $A.set<byte>(padding, i, $A.get<byte>(block, i))
-    in copy(block, padding, tail, i + 1) end
-  val () = copy(block, padding, tail, 0)
-  val () = $A.set<byte>(padding, tail, $A.int2byte(128))
-  val last = (if tail + 9 > 64 then 128 else 64): [last:int | last == 64 || last == 128] int last
-  val length = _sha1_word(data_len)
-  val bits_high = length >> 29
-  val bits_low = length << 3
-  val () = $A.set<byte>(padding, last - 8, $A.int2byte(_sha1_byte(bits_high >> 24)))
-  val () = $A.set<byte>(padding, last - 7, $A.int2byte(_sha1_byte(bits_high >> 16)))
-  val () = $A.set<byte>(padding, last - 6, $A.int2byte(_sha1_byte(bits_high >> 8)))
-  val () = $A.set<byte>(padding, last - 5, $A.int2byte(_sha1_byte(bits_high)))
-  val () = $A.set<byte>(padding, last - 4, $A.int2byte(_sha1_byte(bits_low >> 24)))
-  val () = $A.set<byte>(padding, last - 3, $A.int2byte(_sha1_byte(bits_low >> 16)))
-  val () = $A.set<byte>(padding, last - 2, $A.int2byte(_sha1_byte(bits_low >> 8)))
-  val () = $A.set<byte>(padding, last - 1, $A.int2byte(_sha1_byte(bits_low)))
-  val @(h0, h1, h2, h3, h4) = _sha1_compress_padding(padding, last, w, filled_state)
-  val () = _sha1_put_word(out, 0, h0)
-  val () = _sha1_put_word(out, 4, h1)
-  val () = _sha1_put_word(out, 8, h2)
-  val () = _sha1_put_word(out, 12, h3)
-  val () = _sha1_put_word(out, 16, h4)
-in _sha1_release(padding, block, w) end
-
-implement sha1_digest (data, data_len, out) = _sha1_digest(data, data_len, out)
 
 (* ============================================================
    Messages as sequences of bytes, and the padding (FIPS 180-4,
@@ -2279,3 +1921,442 @@ fun _small1 {chain_loc,schedule_loc,block_loc,data_loc,out_loc:agz}{n:nat}{data_
 implement sha1_digest_proved {l}{n}{data_cells}{length}{out_loc}{out_cells} (data, len, out) = let
   val (hashed, have, block_held, list, counted | @(chain_array, schedule_array, block_array)) = _init1()
 in _small1(chain_array, schedule_array, block_array, data, len, 0, 0, 0, hashed, have, block_held, list, counted, HELD_zero(), out) end
+
+(* ============================================================
+   SHA-1 incrementally (FIPS 180-4, section 6.1), the same way as SHA-256
+   ============================================================ *)
+
+#pub datavtype ctx1($A.cells) =
+  | {message:$A.cells}{chain_loc,schedule_loc,block_loc:agz}{chain_cells,schedule_cells,block_cells,hashed_bytes:$A.cells}{chaining:five_words}{count_top,count_high,count_blocks,fill:nat | count_top < 8191; count_high < 65536; count_blocks < 1024; fill < 64}
+    ctx1_mk(message) of (
+      HASHED1(hashed_bytes, chaining), FIVE_AT(chain_cells, 0, chaining), HELD(hashed_bytes, block_cells, fill, message), LIST(message), COUNTED(message, count_top, count_high, count_blocks, fill) |
+      $A.barr(chain_loc, 20, chain_cells), $A.barr(schedule_loc, 320, schedule_cells), $A.barr(block_loc, 64, block_cells), int count_top, int count_high, int count_blocks, int fill)
+
+(* A hash of the empty message *)
+#pub fn init1_proved (): ctx1($A.cnil())
+
+implement init1_proved () = let
+  val (hashed, have, block_held, list, counted | @(chain_array, schedule_array, block_array)) = _init1()
+in ctx1_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, 0, 0, 0, 0) end
+
+(* What update1_proved did: all `length` bytes were put after the message
+   (Updated1: message_after is the message and the first `length` cells of
+   the data, one after the other), or the message reached its largest length
+   (about 2 to the 45 bytes) first and the bytes from the i-th on were not put
+   (Stopped1: only the first i were). The comparable streaming API of HACL*
+   answers a length over its maximum with an error code, as this does. *)
+#pub datavtype update1_result($A.cells, $A.cells, int) =
+  | {message_before,data_cells:$A.cells}{length:nat}{message_after:$A.cells}
+    Updated1(message_before, data_cells, length) of (HELD(message_before, data_cells, length, message_after) | ctx1(message_after))
+  | {message_before,data_cells:$A.cells}{length:nat}{message_after:$A.cells}{i:nat | i < length}
+    Stopped1(message_before, data_cells, length) of (HELD(message_before, data_cells, i, message_after) | ctx1(message_after))
+
+fun _update1 {chain_loc,schedule_loc,block_loc,data_loc:agz}{n:nat}{data_cells,message_before:$A.cells}{length:nat | length <= n}{i:nat | i <= length}
+  {chain_cells,schedule_cells,block_cells,hashed_bytes,message:$A.cells}{chaining:five_words}{count_top,count_high,count_blocks,fill:nat | count_top < 8191; count_high < 65536; count_blocks < 1024; fill < 64} .<length - i>.
+  (chain_array: $A.barr(chain_loc, 20, chain_cells), schedule_array: $A.barr(schedule_loc, 320, schedule_cells), block_array: $A.barr(block_loc, 64, block_cells),
+   data: !$A.barr(data_loc, n, data_cells), length: int length, i: int i, count_top: int count_top, count_high: int count_high, count_blocks: int count_blocks, fill: int fill,
+   hashed: HASHED1(hashed_bytes, chaining), have: FIVE_AT(chain_cells, 0, chaining), block_held: HELD(hashed_bytes, block_cells, fill, message), list: LIST(message),
+   counted: COUNTED(message, count_top, count_high, count_blocks, fill), data_held: HELD(message_before, data_cells, i, message))
+  : update1_result(message_before, data_cells, length) =
+  if i >= length then Updated1(data_held | ctx1_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill))
+  else if count_top >= 8190 then Stopped1(data_held | ctx1_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill))
+  else let
+    val (data_held_after, block_held_after, list_after, counted_after | @(block_array, index_after, fill_after)) = _feed(block_array, data, length, i, fill, data_held, block_held, list, counted)
+  in
+    if fill_after >= 64 then let
+      val (hashed_after, have_after | @(schedule_array, chain_array)) = _compress1(block_array, schedule_array, chain_array, have, hashed, block_held_after)
+      val (norm | @(count_top_after, count_high_after, count_blocks_after)) = _normalize(count_top, count_high, count_blocks)
+    in _update1(chain_array, schedule_array, block_array, data, length, index_after, count_top_after, count_high_after, count_blocks_after, 0,
+         hashed_after, have_after, HELD_zero(), list_after, COUNTED_norm(counted_after, norm), data_held_after) end
+    else Updated1(data_held_after | ctx1_mk(hashed, have, block_held_after, list_after, counted_after | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill_after))
+  end
+
+(* The bytes data[0, len) put after the message so far, one by one: the
+   result's HELD proof is that message_after is the message followed by those
+   cells. A block that fills is hashed (and the proof that it was, with the
+   chaining value it made, is in the context). *)
+#pub fn update1_proved {message,data_cells:$A.cells}{l:agz}{n:nat}{length:nat | length <= n}
+  (c: ctx1(message), data: !$A.barr(l, n, data_cells), len: int length): update1_result(message, data_cells, length)
+
+implement update1_proved {message,data_cells}{l}{n}{length} (c, data, len) = let
+  val+ ~ctx1_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill) = c
+in _update1(chain_array, schedule_array, block_array, data, len, 0, count_top, count_high, count_blocks, fill, hashed, have, block_held, list, counted, HELD_zero()) end
+
+(* The padding of the message so far, the last block or two hashed, and the
+   SHA-1 of the message as its 20 bytes in out, with the proof that they are
+   (DIGEST1, FIVE_AT). The context is used up. *)
+#pub fn finish1_proved {message:$A.cells}{out_loc:agz}{out_cells:$A.cells} (c: ctx1(message), out: $A.barr(out_loc, 20, out_cells))
+  : [out_cells_after:$A.cells][chaining:five_words] (DIGEST1(message, chaining), FIVE_AT(out_cells_after, 0, chaining) | $A.barr(out_loc, 20, out_cells_after))
+
+implement finish1_proved {message}{out_loc}{out_cells} (c, out) = let
+  val+ ~ctx1_mk(hashed, have, block_held, list, counted | chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill) = c
+in _finish1(chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill, hashed, have, block_held, list, counted, out) end
+
+(* ============================================================
+   Round constants (FIPS 180-4, section 4.2.2)
+   ============================================================ *)
+
+fn _k {i:nat | i < 64} (i: int i): uint =
+  if i < 8 then
+    (if i = 0 then 0x428a2f98u else if i = 1 then 0x71374491u
+     else if i = 2 then 0xb5c0fbcfu else if i = 3 then 0xe9b5dba5u
+     else if i = 4 then 0x3956c25bu else if i = 5 then 0x59f111f1u
+     else if i = 6 then 0x923f82a4u else 0xab1c5ed5u)
+  else if i < 16 then
+    (if i = 8 then 0xd807aa98u else if i = 9 then 0x12835b01u
+     else if i = 10 then 0x243185beu else if i = 11 then 0x550c7dc3u
+     else if i = 12 then 0x72be5d74u else if i = 13 then 0x80deb1feu
+     else if i = 14 then 0x9bdc06a7u else 0xc19bf174u)
+  else if i < 24 then
+    (if i = 16 then 0xe49b69c1u else if i = 17 then 0xefbe4786u
+     else if i = 18 then 0x0fc19dc6u else if i = 19 then 0x240ca1ccu
+     else if i = 20 then 0x2de92c6fu else if i = 21 then 0x4a7484aau
+     else if i = 22 then 0x5cb0a9dcu else 0x76f988dau)
+  else if i < 32 then
+    (if i = 24 then 0x983e5152u else if i = 25 then 0xa831c66du
+     else if i = 26 then 0xb00327c8u else if i = 27 then 0xbf597fc7u
+     else if i = 28 then 0xc6e00bf3u else if i = 29 then 0xd5a79147u
+     else if i = 30 then 0x06ca6351u else 0x14292967u)
+  else if i < 40 then
+    (if i = 32 then 0x27b70a85u else if i = 33 then 0x2e1b2138u
+     else if i = 34 then 0x4d2c6dfcu else if i = 35 then 0x53380d13u
+     else if i = 36 then 0x650a7354u else if i = 37 then 0x766a0abbu
+     else if i = 38 then 0x81c2c92eu else 0x92722c85u)
+  else if i < 48 then
+    (if i = 40 then 0xa2bfe8a1u else if i = 41 then 0xa81a664bu
+     else if i = 42 then 0xc24b8b70u else if i = 43 then 0xc76c51a3u
+     else if i = 44 then 0xd192e819u else if i = 45 then 0xd6990624u
+     else if i = 46 then 0xf40e3585u else 0x106aa070u)
+  else if i < 56 then
+    (if i = 48 then 0x19a4c116u else if i = 49 then 0x1e376c08u
+     else if i = 50 then 0x2748774cu else if i = 51 then 0x34b0bcb5u
+     else if i = 52 then 0x391c0cb3u else if i = 53 then 0x4ed8aa4au
+     else if i = 54 then 0x5b9cca4fu else 0x682e6ff3u)
+  else
+    (if i = 56 then 0x748f82eeu else if i = 57 then 0x78a5636fu
+     else if i = 58 then 0x84c87814u else if i = 59 then 0x8cc70208u
+     else if i = 60 then 0x90befffau else if i = 61 then 0xa4506cebu
+     else if i = 62 then 0xbef9a3f7u else 0xc67178f2u)
+
+(* ============================================================
+   Block compression (FIPS 180-4, section 6.2.2)
+   ============================================================ *)
+
+(* Processes data[bo, bo + 64) into h, using w as the message schedule. *)
+fn _compress {ld:agz}{nd:pos}{bo:nat | bo + 64 <= nd}{lw:agz}{lh:agz}
+  (data: !$A.arr(byte, ld, nd), bo: int bo,
+   w: !$A.arr(uint, lw, 64), h: !$A.arr(uint, lh, 8)): void = let
+  fun load {t:nat | t <= 16} .<16 - t>.
+    (data: !$A.arr(byte, ld, nd), w: !$A.arr(uint, lw, 64), t: int t): void =
+    if t >= 16 then ()
+    else let
+      val o = bo + 4 * t
+      val b0 = _u(byte2int0($A.get<byte>(data, o)))
+      val b1 = _u(byte2int0($A.get<byte>(data, o + 1)))
+      val b2 = _u(byte2int0($A.get<byte>(data, o + 2)))
+      val b3 = _u(byte2int0($A.get<byte>(data, o + 3)))
+      val () = $A.set<uint>(w, t, (b0 << 24) lor (b1 << 16) lor (b2 << 8) lor b3)
+    in load(data, w, t + 1) end
+  fun expand {t:int | 16 <= t; t <= 64} .<64 - t>.
+    (w: !$A.arr(uint, lw, 64), t: int t): void =
+    if t >= 64 then ()
+    else let
+      val v = _ssig1($A.get<uint>(w, t - 2)) + $A.get<uint>(w, t - 7)
+            + _ssig0($A.get<uint>(w, t - 15)) + $A.get<uint>(w, t - 16)
+      val () = $A.set<uint>(w, t, v)
+    in expand(w, t + 1) end
+  fun rounds {t:nat | t <= 64} .<64 - t>.
+    (w: !$A.arr(uint, lw, 64), t: int t,
+     a: uint, b: uint, c: uint, d: uint,
+     e: uint, f: uint, g: uint, hh: uint): @(uint, uint, uint, uint, uint, uint, uint, uint) =
+    if t >= 64 then @(a, b, c, d, e, f, g, hh)
+    else let
+      val t1 = hh + _bsig1(e) + _ch(e, f, g) + _k(t) + $A.get<uint>(w, t)
+      val t2 = _bsig0(a) + _maj(a, b, c)
+    in rounds(w, t + 1, t1 + t2, a, b, c, d + t1, e, f, g) end
+  val () = load(data, w, 0)
+  val () = expand(w, 16)
+  val h0 = $A.get<uint>(h, 0) val h1 = $A.get<uint>(h, 1)
+  val h2 = $A.get<uint>(h, 2) val h3 = $A.get<uint>(h, 3)
+  val h4 = $A.get<uint>(h, 4) val h5 = $A.get<uint>(h, 5)
+  val h6 = $A.get<uint>(h, 6) val h7 = $A.get<uint>(h, 7)
+  val @(a, b, c, d, e, f, g, hh) = rounds(w, 0, h0, h1, h2, h3, h4, h5, h6, h7)
+  val () = $A.set<uint>(h, 0, h0 + a) val () = $A.set<uint>(h, 1, h1 + b)
+  val () = $A.set<uint>(h, 2, h2 + c) val () = $A.set<uint>(h, 3, h3 + d)
+  val () = $A.set<uint>(h, 4, h4 + e) val () = $A.set<uint>(h, 5, h5 + f)
+  val () = $A.set<uint>(h, 6, h6 + g) val () = $A.set<uint>(h, 7, h7 + hh)
+in end
+
+(* The one or two padding blocks in pad[0, last). *)
+fn _compress_pad {lp,lw,lh:agz}{e:int | e == 64 || e == 128}
+  (pad: !$A.arr(byte, lp, 128), last: int e,
+   w: !$A.arr(uint, lw, 64), h: !$A.arr(uint, lh, 8)): void = let
+  val () = _compress(pad, 0, w, h)
+in if last = 128 then _compress(pad, 64, w, h) else () end
+
+(* ============================================================
+   Output
+   ============================================================ *)
+
+(* The low byte of x. *)
+fn _byte (x: uint): [v:nat | v < 256] int v =
+  $AR.low_byte(g0uint2int_uint_int(x land 0xffu))
+
+(* The hex digit of d < 16. *)
+fn _hex {d:nat | d < 16} (d: int d): [c:nat | c < 256] int c =
+  if d < 10 then d + 48 else d + 87
+
+(* Writes x as 8 hex digits at out[p, p + 8). *)
+fn _put_word {lo:agz}{p:nat | p + 8 <= 64}
+  (out: !$A.arr(byte, lo, 64), p: int p, x: uint): void = let
+  fun loop {i:nat | i <= 8} .<8 - i>.
+    (out: !$A.arr(byte, lo, 64), i: int i): void =
+    if i >= 8 then ()
+    else let
+      val v = _byte(x >> (28 - 4 * i))
+      val hi = v / 16
+      val () = $A.set<byte>(out, p + i, $A.int2byte(_hex(v - 16 * hi)))
+    in loop(out, i + 1) end
+in loop(out, 0) end
+
+(* ============================================================
+   Incremental hash
+   ============================================================ *)
+
+implement init () = let
+  val h = $A.alloc<uint>(8)
+  val () = $A.set<uint>(h, 0, 0x6a09e667u)
+  val () = $A.set<uint>(h, 1, 0xbb67ae85u)
+  val () = $A.set<uint>(h, 2, 0x3c6ef372u)
+  val () = $A.set<uint>(h, 3, 0xa54ff53au)
+  val () = $A.set<uint>(h, 4, 0x510e527fu)
+  val () = $A.set<uint>(h, 5, 0x9b05688cu)
+  val () = $A.set<uint>(h, 6, 0x1f83d9abu)
+  val () = $A.set<uint>(h, 7, 0x5be0cd19u)
+in ctx_mk(h, $A.alloc<uint>(64), $A.alloc<byte>(64), 0, 0u, 0u) end
+
+(* data[i, k) appended to the block in buf[0, b), compressing each block
+   as it fills; the bytes left in the block *)
+fun _fill {lh,lw,lb,ld:agz}{n:pos}{k:nat | k <= n}{i:nat | i <= k}{b:nat | b < 64}
+  .<k - i>.
+  (h: !$A.arr(uint, lh, 8), w: !$A.arr(uint, lw, 64), buf: !$A.arr(byte, lb, 64),
+   data: !$A.arr(byte, ld, n), k: int k, i: int i, b: int b)
+  : [b2:nat | b2 < 64] int b2 =
+  if i >= k then b
+  else let
+    val () = $A.set<byte>(buf, b, $A.get<byte>(data, i))
+  in
+    if b + 1 >= 64 then let
+      val () = _compress(buf, 0, w, h)
+    in _fill(h, w, buf, data, k, i + 1, 0) end
+    else _fill(h, w, buf, data, k, i + 1, b + 1)
+  end
+
+implement update {l}{n}{k} (c, data, len) = let
+  val+ @ctx_mk(h, w, buf, b, hi, lo) = c
+  val () = b := _fill(h, w, buf, data, len, 0, b)
+  val nlo = lo + _u(len)
+  val () = (if nlo < lo then hi := hi + 1u else ())
+  val () = lo := nlo
+  prval () = fold@(c)
+in end
+
+implement finish {lo} (c, out) = let
+  val+ ~ctx_mk(h, w, buf, tail, nhi, nlo) = c
+  (* The tail, 0x80, zeros and the 64-bit big-endian bit length, in one
+     or two blocks. alloc zeroes the buffer. *)
+  val pad = $A.alloc<byte>(128)
+  fun copy {lp,lb:agz}{t:nat | t < 64}{i:nat | i <= t} .<t - i>.
+    (buf: !$A.arr(byte, lb, 64), pad: !$A.arr(byte, lp, 128), t: int t, i: int i): void =
+    if i >= t then ()
+    else let
+      val () = $A.set<byte>(pad, i, $A.get<byte>(buf, i))
+    in copy(buf, pad, t, i + 1) end
+  val () = copy(buf, pad, tail, 0)
+  val () = $A.set<byte>(pad, tail, $A.int2byte(128))
+  val last = (if tail + 9 > 64 then 128 else 64): [e:int | e == 64 || e == 128] int e
+  val bhi = (nhi << 3) lor (nlo >> 29)
+  val blo = nlo << 3
+  val () = $A.set<byte>(pad, last - 8, $A.int2byte(_byte(bhi >> 24)))
+  val () = $A.set<byte>(pad, last - 7, $A.int2byte(_byte(bhi >> 16)))
+  val () = $A.set<byte>(pad, last - 6, $A.int2byte(_byte(bhi >> 8)))
+  val () = $A.set<byte>(pad, last - 5, $A.int2byte(_byte(bhi)))
+  val () = $A.set<byte>(pad, last - 4, $A.int2byte(_byte(blo >> 24)))
+  val () = $A.set<byte>(pad, last - 3, $A.int2byte(_byte(blo >> 16)))
+  val () = $A.set<byte>(pad, last - 2, $A.int2byte(_byte(blo >> 8)))
+  val () = $A.set<byte>(pad, last - 1, $A.int2byte(_byte(blo)))
+  val () = _compress_pad(pad, last, w, h)
+  fun put {lh:agz}{j:nat | j <= 8} .<8 - j>.
+    (out: !$A.arr(byte, lo, 64), h: !$A.arr(uint, lh, 8), j: int j): void =
+    if j >= 8 then ()
+    else let val () = _put_word(out, 8 * j, $A.get<uint>(h, j)) in put(out, h, j + 1) end
+  val () = put(out, h, 0)
+  val () = $A.free<byte>(pad)
+  val () = $A.free<byte>(buf)
+  val () = $A.free<uint>(w)
+  val () = $A.free<uint>(h)
+in end
+
+(* ============================================================
+   Main hash
+   ============================================================ *)
+
+implement hash {l}{n}{lo} (data, data_len, out) = let
+  val c = init()
+  val () = update(c, data, data_len)
+in finish(c, out) end
+
+(* ============================================================
+   The proved code through arrays: proved_hash, proved_init,
+   proved_update, proved_finish and sha1_digest (sha256#29, stage E)
+
+   The callers' arrays are array's `arr` (and `borrow`), whose cells the
+   types know nothing of, and the proved functions read a `barr`, whose
+   cells they do. So the bytes of a call are copied, a piece at a time, into
+   a `barr` of the package's own (_copy_arr, _copy_borrow) and fed to the
+   proved update (update256_proved, update1_proved); the digits and bytes
+   the proved finish writes into a `barr` are copied to the caller's array
+   (_copy_out). The copies are glue the types do not check, tested by
+   tests/dynamic; everything between them (the padding, the blocks, the
+   message schedule, the rounds, the chaining value, the digits) is the
+   proved code, so the digest a caller gets is the one DIGEST256 and
+   DIGEST1 are about. An input of any length is fed in pieces to the
+   incremental proved API, so no input is limited to the 2 to the 16 bytes
+   the one-shot sha256_digest_proved and sha1_digest_proved take (those are
+   proved too and stay beside).
+
+   hash, init, update and finish keep the fast code above: they are not
+   changed, and the proved functions are new names beside them.
+   ============================================================ *)
+
+(* A byte as the integer it is, 0 to 255 *)
+fn _octet (b: byte): [v:int | 0 <= v; v < 256] int v = let
+  val x = g1ofg0(byte2int0(b))
+in
+  if x >= 0 then (if x < 256 then x else 0)
+  else if x >= ~256 then x + 256 else 0
+end
+
+(* data[from, from + count) put in the cells of the piece from its j-th on *)
+fun _copy_arr {ld,lb:agz}{nd:pos}{from,count:nat | from + count <= nd; count <= 4096}{j:nat | j <= count}{cs:$A.cells} .<count - j>.
+  (piece: $A.barr(lb, 4096, cs), data: !$A.arr(byte, ld, nd), from: int from, count: int count, j: int j)
+  : [cs2:$A.cells] $A.barr(lb, 4096, cs2) =
+  if j >= count then piece
+  else let
+    val (_ | piece) = $A.barr_set(piece, j, _octet($A.get<byte>(data, from + j)))
+  in _copy_arr(piece, data, from, count, j + 1) end
+
+fun _copy_borrow {ld,lb:agz}{nd:pos}{from,count:nat | from + count <= nd; count <= 4096}{j:nat | j <= count}{cs:$A.cells} .<count - j>.
+  (piece: $A.barr(lb, 4096, cs), data: !$A.borrow(byte, ld, nd), from: int from, count: int count, j: int j)
+  : [cs2:$A.cells] $A.barr(lb, 4096, cs2) =
+  if j >= count then piece
+  else let
+    val (_ | piece) = $A.barr_set(piece, j, _octet($A.read<byte>(data, from + j)))
+  in _copy_borrow(piece, data, from, count, j + 1) end
+
+(* The first count cells of a barr put in an array of the caller's *)
+fun _copy_out {lt,lo:agz}{n:pos}{count:nat | count <= n}{j:nat | j <= count}{cs:$A.cells} .<count - j>.
+  (source: !$A.barr(lt, n, cs), out: !$A.arr(byte, lo, n), count: int count, j: int j): void =
+  if j >= count then ()
+  else let
+    val (_ | v) = $A.barr_get(source, j)
+    val () = $A.set<byte>(out, j, $A.int2byte(v))
+  in _copy_out(source, out, count, j + 1) end
+
+(* data[i, length) fed to the context in pieces of at most 4096 bytes; it stops
+   (Stopped256) only when the message has reached its largest length, about
+   2 to the 45 bytes *)
+fun _pour256 {ld,lb:agz}{nd:pos}{message,cs:$A.cells}{length:nat | length <= nd}{i:nat | i <= length} .<length - i>.
+  (c: ctx256(message), piece: $A.barr(lb, 4096, cs), data: !$A.arr(byte, ld, nd), length: int length, i: int i)
+  : [message_after,cs2:$A.cells] @(ctx256(message_after), $A.barr(lb, 4096, cs2)) =
+  if i >= length then @(c, piece)
+  else let
+    val rest = length - i
+    val count = (if rest < 4096 then rest else 4096): [q:pos | q <= 4096; q <= length - i] int q
+    val piece = _copy_arr(piece, data, i, count, 0)
+  in
+    case+ update256_proved(c, piece, count) of
+    | ~Updated256(_ | c2) => _pour256(c2, piece, data, length, i + count)
+    | ~Stopped256(_ | c2) => @(c2, piece)
+  end
+
+fun _pour1 {ld,lb:agz}{nd:pos}{message,cs:$A.cells}{length:nat | length <= nd}{i:nat | i <= length} .<length - i>.
+  (c: ctx1(message), piece: $A.barr(lb, 4096, cs), data: !$A.borrow(byte, ld, nd), length: int length, i: int i)
+  : [message_after,cs2:$A.cells] @(ctx1(message_after), $A.barr(lb, 4096, cs2)) =
+  if i >= length then @(c, piece)
+  else let
+    val rest = length - i
+    val count = (if rest < 4096 then rest else 4096): [q:pos | q <= 4096; q <= length - i] int q
+    val piece = _copy_borrow(piece, data, i, count, 0)
+  in
+    case+ update1_proved(c, piece, count) of
+    | ~Updated1(_ | c2) => _pour1(c2, piece, data, length, i + count)
+    | ~Stopped1(_ | c2) => @(c2, piece)
+  end
+
+(* The proved incremental SHA-256: proved_init, proved_update with each piece
+   of the input in order, then proved_finish; the same as init, update and
+   finish but the proved code, and about 30 times slower. It holds a ctx256
+   of some message. *)
+#pub datavtype proved_ctx =
+  | {message:$A.cells} proved_ctx_mk of (ctx256(message))
+
+#pub fn proved_init (): proved_ctx
+
+implement proved_init () = proved_ctx_mk(init256_proved())
+
+(* Hashes data[0, len) after everything given so far (the proved code). A message that has
+   reached its largest length (about 2 to the 45 bytes) takes no more. *)
+#pub fn proved_update
+  {l:agz}{n:pos}{k:nat | k <= n}
+  (c: !proved_ctx, data: !$A.arr(byte, l, n), len: int k): void
+
+implement proved_update {l}{n}{k} (c, data, len) = let
+  val+ @proved_ctx_mk(inner) = c
+  val taken = inner
+  val (_ | piece) = $A.barr_alloc(4096)
+  val @(next, piece) = _pour256(taken, piece, data, len, 0)
+  val () = $A.barr_free(piece)
+  val () = inner := next
+  prval () = fold@(c)
+in end
+
+(* The SHA-256 of everything given, as 64 lowercase hex digits in out (the
+   proved code). *)
+#pub fn proved_finish {lo:agz} (c: proved_ctx, out: !$A.arr(byte, lo, 64)): void
+
+implement proved_finish {lo} (c, out) = let
+  val+ ~proved_ctx_mk(inner) = c
+  val (_ | digits) = $A.barr_alloc(64)
+  val (_, _ | digits) = finish256_proved(inner, digits)
+  val () = _copy_out(digits, out, 64, 0)
+  val () = $A.barr_free(digits)
+in end
+
+(* The SHA-256 of data[0, data_len) as 64 lowercase hex digits in out (the
+   proved code; hash is the fast one). *)
+#pub fn proved_hash
+  {l:agz}{n:pos}{lo:agz}
+  (data: !$A.arr(byte, l, n), data_len: int n,
+   out: !$A.arr(byte, lo, 64)): void
+
+implement proved_hash {l}{n}{lo} (data, data_len, out) = let
+  val c = proved_init()
+  val () = proved_update(c, data, data_len)
+in proved_finish(c, out) end
+
+(* The SHA-1 of data[0, data_len) as its 20 bytes, in out. SHA-1 is not fit
+   to keep anything secret; it is here for the one thing EPUB asks of it, the
+   key of the IDPF font obfuscation (quire#562). *)
+#pub fn sha1_digest {l:agz}{n:pos}{data_len:pos | data_len <= n}{lo:agz}
+  (data: !$A.borrow(byte, l, n), data_len: int data_len, out: !$A.arr(byte, lo, 20)): void
+
+implement sha1_digest {l}{n}{data_len}{lo} (data, data_len, out) = let
+  val (_ | piece) = $A.barr_alloc(4096)
+  val @(c, piece) = _pour1(init1_proved(), piece, data, data_len, 0)
+  val () = $A.barr_free(piece)
+  val (_ | digits) = $A.barr_alloc(20)
+  val (_, _ | digits) = finish1_proved(c, digits)
+  val () = _copy_out(digits, out, 20, 0)
+  val () = $A.barr_free(digits)
+in end

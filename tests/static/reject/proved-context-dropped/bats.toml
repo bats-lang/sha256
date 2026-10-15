@@ -1,0 +1,8 @@
+[package]
+name = "proved-context-dropped"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

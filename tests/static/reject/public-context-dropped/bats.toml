@@ -1,0 +1,8 @@
+[package]
+name = "public-context-dropped"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

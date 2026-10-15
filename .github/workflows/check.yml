@@ -60,6 +60,12 @@ jobs:
           test -f bats.lock || { echo "::error::bats.lock is missing: run 'bats lock --repository <dir>' and commit it"; exit 1; }
           bats check --repository ~/repository
 
+      # Each reject fixture must fail exactly as its expect says (quire#585)
+      - name: Static tests
+        run: |
+          export PATH=~/bats-bin:$PATH
+          tests/static/run.sh ~/repository
+
       - name: Dynamic tests
         run: |
           sudo apt-get install -y valgrind

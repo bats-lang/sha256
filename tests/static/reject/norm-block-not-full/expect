@@ -1,1 +1,3 @@
-norm-block-not-full.bats: 380(line=7, offs=53) -- 397(line=7, offs=70): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(64); S2Eintinf(63)))
+function claim
+line 7
+unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(64); S2Eintinf(63)))

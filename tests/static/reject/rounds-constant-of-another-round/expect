@@ -1,1 +1,3 @@
-rounds-constant-of-another-round.bats: 1645(line=15, offs=33) -- 1653(line=15, offs=41): error(3): unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(1); S2Evar(t
+function claim
+line 15
+unsolved constraint: C3NSTRprop(C3TKmain(); S2Eeqeq(S2Eintinf(1); S2Evar(t(14466))))

@@ -1,1 +1,6 @@
-schedule-sigma-swapped.bats: 1135(line=18, offs=54) -- 1140(line=18, offs=59): error(3): the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(SMALL_SIGMA_1);
+function claim
+line 18
+the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(SMALL_SIGMA_1); S2Evar(b2h(14467)), S2Evar(b2l(14468)), S2EVar(11861), S2EVar(11862))].
+mismatch of static terms (tyleq):
+The actual term is: S2Eapp(S2Ecst(SMALL_SIGMA_0); S2Evar(b2h(14467)), S2Evar(b2l(14468)), S2Evar(s1h(14475)), S2Evar(s1l(14476)))
+The needed term is: S2Eapp(S2Ecst(SMALL_SIGMA_1); S2Evar(b2h(14467)), S2Evar(b2l(14468)), S2EVar(11861), S2EVar(11862))

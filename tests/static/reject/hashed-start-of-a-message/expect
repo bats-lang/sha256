@@ -1,1 +1,9 @@
-hashed-start-of-a-message.bats: 466(line=8, offs=3) -- 489(line=8, offs=26): error(3): the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(HASHED256); S2Eapp(S2Ecst(ccons); S2Eintinf(1), S2Evar(message
+function claim
+line 8
+the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(HASHED256); S2Eapp(S2Ecst(ccons); S2Eintinf(1), S2Evar(message(14464))), S2Evar(chaining(14465)))].
+mismatch of static terms (equal):
+The actual term is: S2Eapp(S2Ecst(cnil); )
+The needed term is: S2Eapp(S2Ecst(ccons); S2Eintinf(1), S2Evar(message(14464)))
+mismatch of static terms (tyleq):
+The actual term is: S2Eapp(S2Ecst(HASHED256); S2Eapp(S2Ecst(cnil); ), S2Evar(chaining(14465)))
+The needed term is: S2Eapp(S2Ecst(HASHED256); S2Eapp(S2Ecst(ccons); S2Eintinf(1), S2Evar(message(14464))), S2Evar(chaining(14465)))
