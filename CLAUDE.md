@@ -232,8 +232,12 @@ change to this stage repeats: a probe (`prfn t (): [1 == 2] void = ()` after
 each `val`, which must be rejected) in every function of the stage, and a
 mutation of every arithmetic expression (an off-by-one constant, a missing
 carry, a wrong bound) which must be rejected; each public lemma and relation
-has its false variant in `tests/static/reject`. 34 mutations were rejected at
-the last run, and none of the probes (after every `val` of the stage) was accepted.
+has its false variant in `tests/static/reject`. At the head of the pull request (quire's `mutation_check.py`, the GMP solver, on
+`src/lib.bats`): 61 mutants of the lemmas were rejected and 1 accepted, with no
+control failed. The accepted one is `_snoc_list` with its `SNOC` value argument
+plus one: `_snoc_list` is stated for every `value:int` (`{value:int}`), so the
+statement at `value + 1` is the same lemma at another value, true, not a
+vacuous proof. None of the probes (after every `val` of the stage) was accepted.
 
 `tests/dynamic/digest` prints SHA-256 of the proved incremental API in pieces
 (1, 7, 13, 64, 1000, 4097 bytes) and in one call, and SHA-1 in one call, for

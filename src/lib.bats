@@ -602,8 +602,10 @@ in (FIVE_AT_mk(stored0, stored1, stored2, stored3, stored4) | cells) end
    table states them as the standard prints them, and the compiler checks
    that the rounds use the table's word for round t and no other. That each is
    what the definition says is NOT proved: the proof needs integers of 2 to
-   the 100, which the 32-bit solver cannot hold. It is tested against the
-   integer cube roots (tests/dynamic/constants) and owed (a p2 issue). *)
+   the 100, which the 32-bit solver cannot hold. It is tested only through
+   the digests that depend on every word of it (tests/dynamic/vectors,
+   digest and proved, against the standard's vectors and hashlib), not
+   against the integer cube roots word by word, and owed (sha256 issue 31). *)
 #pub dataprop SHA256_K(int, int, int) =
   | SHA256_K_0(0, 0x428a, 0x2f98)
   | SHA256_K_1(1, 0x7137, 0x4491)
@@ -1055,8 +1057,9 @@ implement sha1_f {t}{bh,bl,ch,cl,dh,dl} (t, bh, bl, ch, cl, dh, dl) =
    40 to 59 and ca62c1d6 from 60 to 79. The standard defines them as the
    first 30 bits of the square roots of 2, 3, 5 and 10 times 2 to the 30 (the
    integer part of 2 to the 30 times the root). Like SHA-256's they are stated
-   and tested (tests/dynamic/constants), not proved against the definition
-   (the proof needs integers of 2 to the 61 and more); owed, a p2 issue. *)
+   and tested only through the digests that depend on them
+   (tests/dynamic/sha1 and proved), not proved against the definition (the
+   proof needs integers of 2 to the 61 and more); owed (sha256 issue 31). *)
 #pub dataprop SHA1_K(int, int, int) =
   | {t:nat | 0 <= t; t <= 19} SHA1_K_0_to_19(t, 0x5a82, 0x7999)
   | {t:nat | 20 <= t; t <= 39} SHA1_K_20_to_39(t, 0x6ed9, 0xeba1)
