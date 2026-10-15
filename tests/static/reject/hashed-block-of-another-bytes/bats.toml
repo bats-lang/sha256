@@ -1,0 +1,8 @@
+[package]
+name = "hashed-block-of-another-bytes"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

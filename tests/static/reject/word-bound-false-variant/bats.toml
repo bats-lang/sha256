@@ -1,0 +1,8 @@
+[package]
+name = "word-bound-false-variant"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

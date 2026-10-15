@@ -1,0 +1,8 @@
+[package]
+name = "hex-letter-for-a-decimal-digit"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

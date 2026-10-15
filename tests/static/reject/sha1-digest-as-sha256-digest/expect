@@ -1,0 +1,3 @@
+function claim
+line 8
+the static expression is of the sort [S2RTbas(S2RTBASdef(five_words))] but it is expected to be of the sort [S2RTbas(S2RTBASdef(eight_words))].

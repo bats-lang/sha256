@@ -1,0 +1,4 @@
+function claim
+line 8
+pattern match is nonexhaustive:
+Stopped256(_, _)

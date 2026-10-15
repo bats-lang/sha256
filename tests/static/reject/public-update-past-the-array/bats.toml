@@ -1,0 +1,8 @@
+[package]
+name = "public-update-past-the-array"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

@@ -1,0 +1,8 @@
+[package]
+name = "digest-of-the-unpadded-message"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

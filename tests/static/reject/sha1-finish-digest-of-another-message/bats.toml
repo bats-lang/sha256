@@ -1,0 +1,8 @@
+[package]
+name = "sha1-finish-digest-of-another-message"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

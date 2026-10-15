@@ -1,0 +1,8 @@
+[package]
+name = "sha1-update-more-than-the-array-holds"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

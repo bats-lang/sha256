@@ -1,0 +1,8 @@
+[package]
+name = "pad-short-of-a-count-for-another-block"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

@@ -1,0 +1,6 @@
+function claim
+line 13
+the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(ctx1); S2EVar(11859))].
+mismatch of static terms (tyleq):
+The actual term is: S2Eapp(S2Ecst(ctx256); S2Evar(message(14478)))
+The needed term is: S2Eapp(S2Ecst(ctx1); S2EVar(11859))

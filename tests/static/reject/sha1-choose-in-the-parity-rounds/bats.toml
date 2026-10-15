@@ -1,0 +1,8 @@
+[package]
+name = "sha1-choose-in-the-parity-rounds"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

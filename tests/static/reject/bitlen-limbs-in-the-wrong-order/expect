@@ -1,0 +1,10 @@
+function claim
+line 10
+the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(BITLEN_LOW); S2EVar(11852), S2EVar(11853), S2EVar(11854), S2EVar(11860), S2EVar(11861))].
+mismatch of static terms (tyleq):
+The actual term is: S2Eapp(S2Ecst(BITLEN_MID); S2Evar(count_high(14465)), S2Evar(carry_low(14468)), S2Evar(carry_mid(14469)), S2Evar(byte4(14472)), S2Evar(byte5(14473)))
+The needed term is: S2Eapp(S2Ecst(BITLEN_LOW); S2EVar(11852), S2EVar(11853), S2EVar(11854), S2EVar(11860), S2EVar(11861))
+the dynamic expression cannot be assigned the type [S2Eapp(S2Ecst(BITLEN_MID); S2EVar(11851), S2EVar(11854), S2EVar(11855), S2EVar(11858), S2EVar(11859))].
+mismatch of static terms (tyleq):
+The actual term is: S2Eapp(S2Ecst(BITLEN_LOW); S2Evar(count_blocks(14466)), S2Evar(fill(14467)), S2Evar(carry_low(14468)), S2Evar(byte6(14474)), S2Evar(byte7(14475)))
+The needed term is: S2Eapp(S2Ecst(BITLEN_MID); S2EVar(11851), S2EVar(11854), S2EVar(11855), S2EVar(11858), S2EVar(11859))

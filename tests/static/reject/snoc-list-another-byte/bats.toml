@@ -1,0 +1,8 @@
+[package]
+name = "snoc-list-another-byte"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

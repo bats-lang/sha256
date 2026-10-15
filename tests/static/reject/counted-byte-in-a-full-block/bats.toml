@@ -1,0 +1,8 @@
+[package]
+name = "counted-byte-in-a-full-block"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

@@ -1,0 +1,8 @@
+[package]
+name = "counted-norm-of-a-short-block"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""
