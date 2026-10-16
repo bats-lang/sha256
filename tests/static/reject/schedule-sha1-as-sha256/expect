@@ -1,0 +1,9 @@
+function claim
+line 10
+the pattern cannot be given the ascribed type.
+mismatch of static terms (equal):
+The actual term is: S2Eapp(S2Ecst(sha1_kind); )
+The needed term is: S2Eapp(S2Ecst(sha256_kind); )
+mismatch of static terms (tyleq):
+The actual term is: S2Eapp(S2Ecst(SCHEDULE_ARRAY); S2Eapp(S2Ecst(sha1_kind); ), S2Evar(words2$15920$15921(24704)), S2Evar(msg(14466)), S2Evar(at(14467)), S2Eintinf(80))
+The needed term is: S2Eapp(S2Ecst(SCHEDULE_ARRAY); S2Eapp(S2Ecst(sha256_kind); ), S2Evar(words(14469)), S2Evar(msg(14466)), S2Evar(at(14467)), S2Eintinf(80))

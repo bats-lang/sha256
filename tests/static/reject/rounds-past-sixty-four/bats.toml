@@ -1,0 +1,8 @@
+[package]
+name = "rounds-past-sixty-four"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

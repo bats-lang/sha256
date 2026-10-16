@@ -1,0 +1,8 @@
+[package]
+name = "rounds-word-of-another-round"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

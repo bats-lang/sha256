@@ -1,0 +1,8 @@
+[package]
+name = "one-shot-over-65535"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

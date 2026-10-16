@@ -1,0 +1,8 @@
+[package]
+name = "digest-of-the-padded-message"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

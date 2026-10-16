@@ -1,0 +1,8 @@
+[package]
+name = "sha1-block-claimed-sha256-schedule"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

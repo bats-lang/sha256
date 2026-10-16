@@ -1,0 +1,8 @@
+[package]
+name = "pad-long-one-zero-too-many"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

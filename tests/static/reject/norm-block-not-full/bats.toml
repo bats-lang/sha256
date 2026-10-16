@@ -1,0 +1,8 @@
+[package]
+name = "norm-block-not-full"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

@@ -1,0 +1,8 @@
+[package]
+name = "sha1-rotation-by-five-right"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

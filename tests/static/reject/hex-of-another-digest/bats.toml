@@ -1,0 +1,8 @@
+[package]
+name = "hex-of-another-digest"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

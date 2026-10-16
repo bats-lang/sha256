@@ -1,0 +1,3 @@
+function claim
+line 7
+the linear dynamic variable [c$6895(-1)] needs to be consumed but it is preserved with the type [S2Ecst(ctx)] instead.

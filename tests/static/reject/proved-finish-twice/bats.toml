@@ -1,0 +1,8 @@
+[package]
+name = "proved-finish-twice"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

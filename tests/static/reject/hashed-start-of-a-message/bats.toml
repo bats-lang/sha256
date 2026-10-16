@@ -1,0 +1,8 @@
+[package]
+name = "hashed-start-of-a-message"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

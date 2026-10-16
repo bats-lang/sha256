@@ -1,0 +1,8 @@
+[package]
+name = "update-result-not-all-matched"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

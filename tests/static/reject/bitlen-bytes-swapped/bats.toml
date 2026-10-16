@@ -1,0 +1,8 @@
+[package]
+name = "bitlen-bytes-swapped"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

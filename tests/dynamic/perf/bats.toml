@@ -1,0 +1,8 @@
+[package]
+name = "perf"
+kind = "bin"
+unsafe = true
+
+[dependencies]
+"array" = ""
+"sha256" = ""

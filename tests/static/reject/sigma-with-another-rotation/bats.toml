@@ -1,0 +1,7 @@
+[package]
+name = "sigma-with-another-rotation"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"sha256" = ""

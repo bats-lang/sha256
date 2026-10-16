@@ -1,0 +1,8 @@
+[package]
+name = "schedule-frame-over-a-listed-word"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

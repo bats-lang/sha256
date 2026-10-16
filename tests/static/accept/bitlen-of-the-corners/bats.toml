@@ -1,0 +1,8 @@
+[package]
+name = "bitlen-of-the-corners"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

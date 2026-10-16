@@ -1,0 +1,8 @@
+[package]
+name = "hex-digit-wrong-character"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

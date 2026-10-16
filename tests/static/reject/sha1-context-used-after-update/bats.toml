@@ -1,0 +1,8 @@
+[package]
+name = "sha1-context-used-after-update"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""
