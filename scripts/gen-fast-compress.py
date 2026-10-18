@@ -39,12 +39,13 @@ def generate():
         out.append("  val h%d = $A.get<uint>(h, %d)" % (i, i))
     # the working variables a..h, by the names of their values
     s = ["h%d" % i for i in range(8)]
+    out.append("  val b0 = h1 lxor h2")  # b xor c of round 0, the first bc
     for t in range(64):
         if t >= 16:
             out.append("  val w%d = _schedule(w%d, w%d, w%d, w%d)" % (t, t - 2, t - 7, t - 15, t - 16))
         a, b, c, d, e, f, g, hh = s
-        out.append("  val @(e%d, a%d) = _round(%s, %s, %s, %s, %s, %s, %s, %s, 0x%su + w%d)"
-                   % (t, t, a, b, c, d, e, f, g, hh, K[t], t))
+        out.append("  val @(e%d, a%d, b%d) = _round(%s, %s, %s, %s, %s, %s, %s, %s, 0x%su + w%d, b%d)"
+                   % (t, t, t + 1, a, b, c, d, e, f, g, hh, K[t], t, t))
         s = ["a%d" % t, a, b, c, "e%d" % t, e, f, g]
     for i in range(8):
         out.append("  val () = $A.set<uint>(h, %d, h%d + %s)" % (i, i, s[i]))
