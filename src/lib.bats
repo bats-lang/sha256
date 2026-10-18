@@ -51,18 +51,38 @@
    Word functions (FIPS 180-4, section 4.1.2)
    ============================================================ *)
 
-fn _rotr {k:int | 0 < k; k < 32} (x: uint, k: int k): uint =
-  (x >> k) lor (x << (32 - k))
+(* One round of FIPS 180-4, section 6.2.2, step 3, without the shift of the
+   eight working variables, which the caller does by naming them in another
+   order: the new e, d + T1, and the new a, T1 + T2, where kw is K_t + W_t.
+   Ch(e, f, g) is written g xor (e and (f xor g)) and Maj(a, b, c) as
+   (a and b) or (c and (a or b)), the same functions with fewer operations;
+   a rotation by n is (x >> n) or (x << (32 - n)), written with its amount
+   and in the form a C compiler turns into a rotate. The code is not proved (the proved SHA-256
+   is proved_hash) and is written for a build without optimisation, where
+   every operation is a call: rotations by their amounts, no function of a
+   sigma, the rounds one after another (scripts/gen-fast-compress.py). *)
+fn _round (a: uint, b: uint, c: uint, d: uint, e: uint, f: uint, g: uint, h: uint,
+           kw: uint): @(uint, uint) = let
+  val t1 = h
+    + (((e >> 6) lor (e << 26)) lxor ((e >> 11) lor (e << 21)) lxor ((e >> 25) lor (e << 7)))
+    + (g lxor (e land (f lxor g))) + kw
+  val t2 = (((a >> 2) lor (a << 30)) lxor ((a >> 13) lor (a << 19)) lxor ((a >> 22) lor (a << 10)))
+    + ((a land b) lor (c land (a lor b)))
+in @(d + t1, t1 + t2) end
 
-fn _ch (x: uint, y: uint, z: uint): uint = (x land y) lxor ((lnot x) land z)
+(* W_t of a block from the words before it: sigma1(W_t-2) + W_t-7 +
+   sigma0(W_t-15) + W_t-16; the arguments are those, in that order *)
+fn _schedule (w2: uint, w7: uint, w15: uint, w16: uint): uint =
+  (((w2 >> 17) lor (w2 << 15)) lxor ((w2 >> 19) lor (w2 << 13)) lxor (w2 >> 10)) + w7
+  + (((w15 >> 7) lor (w15 << 25)) lxor ((w15 >> 18) lor (w15 << 14)) lxor (w15 >> 3)) + w16
 
-fn _maj (x: uint, y: uint, z: uint): uint =
-  (x land y) lxor (x land z) lxor (y land z)
-
-fn _bsig0 (x: uint): uint = _rotr(x, 2) lxor _rotr(x, 13) lxor _rotr(x, 22)
-fn _bsig1 (x: uint): uint = _rotr(x, 6) lxor _rotr(x, 11) lxor _rotr(x, 25)
-fn _ssig0 (x: uint): uint = _rotr(x, 7) lxor _rotr(x, 18) lxor (x >> 3)
-fn _ssig1 (x: uint): uint = _rotr(x, 17) lxor _rotr(x, 19) lxor (x >> 10)
+(* The big-endian word of data[at, at + 4) *)
+fn _word {ld:agz}{nd:pos}{at:nat | at + 4 <= nd}
+  (data: !$A.arr(byte, ld, nd), at: int at): uint =
+  (g0int2uint_int_uint(byte2int0($A.get<byte>(data, at))) << 24)
+  lor (g0int2uint_int_uint(byte2int0($A.get<byte>(data, at + 1))) << 16)
+  lor (g0int2uint_int_uint(byte2int0($A.get<byte>(data, at + 2))) << 8)
+  lor g0int2uint_int_uint(byte2int0($A.get<byte>(data, at + 3)))
 
 fn _u (x: int): uint = g0int2uint_int_uint(x)
 
@@ -1996,98 +2016,163 @@ implement finish1_proved {message}{out_loc}{out_cells} (c, out) = let
 in _finish1(chain_array, schedule_array, block_array, count_top, count_high, count_blocks, fill, hashed, have, block_held, list, counted, out) end
 
 (* ============================================================
-   Round constants (FIPS 180-4, section 4.2.2)
-   ============================================================ *)
-
-fn _k {i:nat | i < 64} (i: int i): uint =
-  if i < 8 then
-    (if i = 0 then 0x428a2f98u else if i = 1 then 0x71374491u
-     else if i = 2 then 0xb5c0fbcfu else if i = 3 then 0xe9b5dba5u
-     else if i = 4 then 0x3956c25bu else if i = 5 then 0x59f111f1u
-     else if i = 6 then 0x923f82a4u else 0xab1c5ed5u)
-  else if i < 16 then
-    (if i = 8 then 0xd807aa98u else if i = 9 then 0x12835b01u
-     else if i = 10 then 0x243185beu else if i = 11 then 0x550c7dc3u
-     else if i = 12 then 0x72be5d74u else if i = 13 then 0x80deb1feu
-     else if i = 14 then 0x9bdc06a7u else 0xc19bf174u)
-  else if i < 24 then
-    (if i = 16 then 0xe49b69c1u else if i = 17 then 0xefbe4786u
-     else if i = 18 then 0x0fc19dc6u else if i = 19 then 0x240ca1ccu
-     else if i = 20 then 0x2de92c6fu else if i = 21 then 0x4a7484aau
-     else if i = 22 then 0x5cb0a9dcu else 0x76f988dau)
-  else if i < 32 then
-    (if i = 24 then 0x983e5152u else if i = 25 then 0xa831c66du
-     else if i = 26 then 0xb00327c8u else if i = 27 then 0xbf597fc7u
-     else if i = 28 then 0xc6e00bf3u else if i = 29 then 0xd5a79147u
-     else if i = 30 then 0x06ca6351u else 0x14292967u)
-  else if i < 40 then
-    (if i = 32 then 0x27b70a85u else if i = 33 then 0x2e1b2138u
-     else if i = 34 then 0x4d2c6dfcu else if i = 35 then 0x53380d13u
-     else if i = 36 then 0x650a7354u else if i = 37 then 0x766a0abbu
-     else if i = 38 then 0x81c2c92eu else 0x92722c85u)
-  else if i < 48 then
-    (if i = 40 then 0xa2bfe8a1u else if i = 41 then 0xa81a664bu
-     else if i = 42 then 0xc24b8b70u else if i = 43 then 0xc76c51a3u
-     else if i = 44 then 0xd192e819u else if i = 45 then 0xd6990624u
-     else if i = 46 then 0xf40e3585u else 0x106aa070u)
-  else if i < 56 then
-    (if i = 48 then 0x19a4c116u else if i = 49 then 0x1e376c08u
-     else if i = 50 then 0x2748774cu else if i = 51 then 0x34b0bcb5u
-     else if i = 52 then 0x391c0cb3u else if i = 53 then 0x4ed8aa4au
-     else if i = 54 then 0x5b9cca4fu else 0x682e6ff3u)
-  else
-    (if i = 56 then 0x748f82eeu else if i = 57 then 0x78a5636fu
-     else if i = 58 then 0x84c87814u else if i = 59 then 0x8cc70208u
-     else if i = 60 then 0x90befffau else if i = 61 then 0xa4506cebu
-     else if i = 62 then 0xbef9a3f7u else 0xc67178f2u)
-
-(* ============================================================
    Block compression (FIPS 180-4, section 6.2.2)
    ============================================================ *)
 
-(* Processes data[bo, bo + 64) into h, using w as the message schedule. *)
+(* Processes data[bo, bo + 64) into h. The message schedule is not an array:
+   the words are named (w is not used; it stays so that the context keeps its
+   fields). *)
 fn _compress {ld:agz}{nd:pos}{bo:nat | bo + 64 <= nd}{lw:agz}{lh:agz}
   (data: !$A.arr(byte, ld, nd), bo: int bo,
    w: !$A.arr(uint, lw, 64), h: !$A.arr(uint, lh, 8)): void = let
-  fun load {t:nat | t <= 16} .<16 - t>.
-    (data: !$A.arr(byte, ld, nd), w: !$A.arr(uint, lw, 64), t: int t): void =
-    if t >= 16 then ()
-    else let
-      val o = bo + 4 * t
-      val b0 = _u(byte2int0($A.get<byte>(data, o)))
-      val b1 = _u(byte2int0($A.get<byte>(data, o + 1)))
-      val b2 = _u(byte2int0($A.get<byte>(data, o + 2)))
-      val b3 = _u(byte2int0($A.get<byte>(data, o + 3)))
-      val () = $A.set<uint>(w, t, (b0 << 24) lor (b1 << 16) lor (b2 << 8) lor b3)
-    in load(data, w, t + 1) end
-  fun expand {t:int | 16 <= t; t <= 64} .<64 - t>.
-    (w: !$A.arr(uint, lw, 64), t: int t): void =
-    if t >= 64 then ()
-    else let
-      val v = _ssig1($A.get<uint>(w, t - 2)) + $A.get<uint>(w, t - 7)
-            + _ssig0($A.get<uint>(w, t - 15)) + $A.get<uint>(w, t - 16)
-      val () = $A.set<uint>(w, t, v)
-    in expand(w, t + 1) end
-  fun rounds {t:nat | t <= 64} .<64 - t>.
-    (w: !$A.arr(uint, lw, 64), t: int t,
-     a: uint, b: uint, c: uint, d: uint,
-     e: uint, f: uint, g: uint, hh: uint): @(uint, uint, uint, uint, uint, uint, uint, uint) =
-    if t >= 64 then @(a, b, c, d, e, f, g, hh)
-    else let
-      val t1 = hh + _bsig1(e) + _ch(e, f, g) + _k(t) + $A.get<uint>(w, t)
-      val t2 = _bsig0(a) + _maj(a, b, c)
-    in rounds(w, t + 1, t1 + t2, a, b, c, d + t1, e, f, g) end
-  val () = load(data, w, 0)
-  val () = expand(w, 16)
-  val h0 = $A.get<uint>(h, 0) val h1 = $A.get<uint>(h, 1)
-  val h2 = $A.get<uint>(h, 2) val h3 = $A.get<uint>(h, 3)
-  val h4 = $A.get<uint>(h, 4) val h5 = $A.get<uint>(h, 5)
-  val h6 = $A.get<uint>(h, 6) val h7 = $A.get<uint>(h, 7)
-  val @(a, b, c, d, e, f, g, hh) = rounds(w, 0, h0, h1, h2, h3, h4, h5, h6, h7)
-  val () = $A.set<uint>(h, 0, h0 + a) val () = $A.set<uint>(h, 1, h1 + b)
-  val () = $A.set<uint>(h, 2, h2 + c) val () = $A.set<uint>(h, 3, h3 + d)
-  val () = $A.set<uint>(h, 4, h4 + e) val () = $A.set<uint>(h, 5, h5 + f)
-  val () = $A.set<uint>(h, 6, h6 + g) val () = $A.set<uint>(h, 7, h7 + hh)
+(* begin generated by scripts/gen-fast-compress.py *)
+  (* the 16 words of the block *)
+  val w0 = _word(data, bo + 0)
+  val w1 = _word(data, bo + 4)
+  val w2 = _word(data, bo + 8)
+  val w3 = _word(data, bo + 12)
+  val w4 = _word(data, bo + 16)
+  val w5 = _word(data, bo + 20)
+  val w6 = _word(data, bo + 24)
+  val w7 = _word(data, bo + 28)
+  val w8 = _word(data, bo + 32)
+  val w9 = _word(data, bo + 36)
+  val w10 = _word(data, bo + 40)
+  val w11 = _word(data, bo + 44)
+  val w12 = _word(data, bo + 48)
+  val w13 = _word(data, bo + 52)
+  val w14 = _word(data, bo + 56)
+  val w15 = _word(data, bo + 60)
+  (* the chaining value *)
+  val h0 = $A.get<uint>(h, 0)
+  val h1 = $A.get<uint>(h, 1)
+  val h2 = $A.get<uint>(h, 2)
+  val h3 = $A.get<uint>(h, 3)
+  val h4 = $A.get<uint>(h, 4)
+  val h5 = $A.get<uint>(h, 5)
+  val h6 = $A.get<uint>(h, 6)
+  val h7 = $A.get<uint>(h, 7)
+  val @(e0, a0) = _round(h0, h1, h2, h3, h4, h5, h6, h7, 0x428a2f98u + w0)
+  val @(e1, a1) = _round(a0, h0, h1, h2, e0, h4, h5, h6, 0x71374491u + w1)
+  val @(e2, a2) = _round(a1, a0, h0, h1, e1, e0, h4, h5, 0xb5c0fbcfu + w2)
+  val @(e3, a3) = _round(a2, a1, a0, h0, e2, e1, e0, h4, 0xe9b5dba5u + w3)
+  val @(e4, a4) = _round(a3, a2, a1, a0, e3, e2, e1, e0, 0x3956c25bu + w4)
+  val @(e5, a5) = _round(a4, a3, a2, a1, e4, e3, e2, e1, 0x59f111f1u + w5)
+  val @(e6, a6) = _round(a5, a4, a3, a2, e5, e4, e3, e2, 0x923f82a4u + w6)
+  val @(e7, a7) = _round(a6, a5, a4, a3, e6, e5, e4, e3, 0xab1c5ed5u + w7)
+  val @(e8, a8) = _round(a7, a6, a5, a4, e7, e6, e5, e4, 0xd807aa98u + w8)
+  val @(e9, a9) = _round(a8, a7, a6, a5, e8, e7, e6, e5, 0x12835b01u + w9)
+  val @(e10, a10) = _round(a9, a8, a7, a6, e9, e8, e7, e6, 0x243185beu + w10)
+  val @(e11, a11) = _round(a10, a9, a8, a7, e10, e9, e8, e7, 0x550c7dc3u + w11)
+  val @(e12, a12) = _round(a11, a10, a9, a8, e11, e10, e9, e8, 0x72be5d74u + w12)
+  val @(e13, a13) = _round(a12, a11, a10, a9, e12, e11, e10, e9, 0x80deb1feu + w13)
+  val @(e14, a14) = _round(a13, a12, a11, a10, e13, e12, e11, e10, 0x9bdc06a7u + w14)
+  val @(e15, a15) = _round(a14, a13, a12, a11, e14, e13, e12, e11, 0xc19bf174u + w15)
+  val w16 = _schedule(w14, w9, w1, w0)
+  val @(e16, a16) = _round(a15, a14, a13, a12, e15, e14, e13, e12, 0xe49b69c1u + w16)
+  val w17 = _schedule(w15, w10, w2, w1)
+  val @(e17, a17) = _round(a16, a15, a14, a13, e16, e15, e14, e13, 0xefbe4786u + w17)
+  val w18 = _schedule(w16, w11, w3, w2)
+  val @(e18, a18) = _round(a17, a16, a15, a14, e17, e16, e15, e14, 0x0fc19dc6u + w18)
+  val w19 = _schedule(w17, w12, w4, w3)
+  val @(e19, a19) = _round(a18, a17, a16, a15, e18, e17, e16, e15, 0x240ca1ccu + w19)
+  val w20 = _schedule(w18, w13, w5, w4)
+  val @(e20, a20) = _round(a19, a18, a17, a16, e19, e18, e17, e16, 0x2de92c6fu + w20)
+  val w21 = _schedule(w19, w14, w6, w5)
+  val @(e21, a21) = _round(a20, a19, a18, a17, e20, e19, e18, e17, 0x4a7484aau + w21)
+  val w22 = _schedule(w20, w15, w7, w6)
+  val @(e22, a22) = _round(a21, a20, a19, a18, e21, e20, e19, e18, 0x5cb0a9dcu + w22)
+  val w23 = _schedule(w21, w16, w8, w7)
+  val @(e23, a23) = _round(a22, a21, a20, a19, e22, e21, e20, e19, 0x76f988dau + w23)
+  val w24 = _schedule(w22, w17, w9, w8)
+  val @(e24, a24) = _round(a23, a22, a21, a20, e23, e22, e21, e20, 0x983e5152u + w24)
+  val w25 = _schedule(w23, w18, w10, w9)
+  val @(e25, a25) = _round(a24, a23, a22, a21, e24, e23, e22, e21, 0xa831c66du + w25)
+  val w26 = _schedule(w24, w19, w11, w10)
+  val @(e26, a26) = _round(a25, a24, a23, a22, e25, e24, e23, e22, 0xb00327c8u + w26)
+  val w27 = _schedule(w25, w20, w12, w11)
+  val @(e27, a27) = _round(a26, a25, a24, a23, e26, e25, e24, e23, 0xbf597fc7u + w27)
+  val w28 = _schedule(w26, w21, w13, w12)
+  val @(e28, a28) = _round(a27, a26, a25, a24, e27, e26, e25, e24, 0xc6e00bf3u + w28)
+  val w29 = _schedule(w27, w22, w14, w13)
+  val @(e29, a29) = _round(a28, a27, a26, a25, e28, e27, e26, e25, 0xd5a79147u + w29)
+  val w30 = _schedule(w28, w23, w15, w14)
+  val @(e30, a30) = _round(a29, a28, a27, a26, e29, e28, e27, e26, 0x06ca6351u + w30)
+  val w31 = _schedule(w29, w24, w16, w15)
+  val @(e31, a31) = _round(a30, a29, a28, a27, e30, e29, e28, e27, 0x14292967u + w31)
+  val w32 = _schedule(w30, w25, w17, w16)
+  val @(e32, a32) = _round(a31, a30, a29, a28, e31, e30, e29, e28, 0x27b70a85u + w32)
+  val w33 = _schedule(w31, w26, w18, w17)
+  val @(e33, a33) = _round(a32, a31, a30, a29, e32, e31, e30, e29, 0x2e1b2138u + w33)
+  val w34 = _schedule(w32, w27, w19, w18)
+  val @(e34, a34) = _round(a33, a32, a31, a30, e33, e32, e31, e30, 0x4d2c6dfcu + w34)
+  val w35 = _schedule(w33, w28, w20, w19)
+  val @(e35, a35) = _round(a34, a33, a32, a31, e34, e33, e32, e31, 0x53380d13u + w35)
+  val w36 = _schedule(w34, w29, w21, w20)
+  val @(e36, a36) = _round(a35, a34, a33, a32, e35, e34, e33, e32, 0x650a7354u + w36)
+  val w37 = _schedule(w35, w30, w22, w21)
+  val @(e37, a37) = _round(a36, a35, a34, a33, e36, e35, e34, e33, 0x766a0abbu + w37)
+  val w38 = _schedule(w36, w31, w23, w22)
+  val @(e38, a38) = _round(a37, a36, a35, a34, e37, e36, e35, e34, 0x81c2c92eu + w38)
+  val w39 = _schedule(w37, w32, w24, w23)
+  val @(e39, a39) = _round(a38, a37, a36, a35, e38, e37, e36, e35, 0x92722c85u + w39)
+  val w40 = _schedule(w38, w33, w25, w24)
+  val @(e40, a40) = _round(a39, a38, a37, a36, e39, e38, e37, e36, 0xa2bfe8a1u + w40)
+  val w41 = _schedule(w39, w34, w26, w25)
+  val @(e41, a41) = _round(a40, a39, a38, a37, e40, e39, e38, e37, 0xa81a664bu + w41)
+  val w42 = _schedule(w40, w35, w27, w26)
+  val @(e42, a42) = _round(a41, a40, a39, a38, e41, e40, e39, e38, 0xc24b8b70u + w42)
+  val w43 = _schedule(w41, w36, w28, w27)
+  val @(e43, a43) = _round(a42, a41, a40, a39, e42, e41, e40, e39, 0xc76c51a3u + w43)
+  val w44 = _schedule(w42, w37, w29, w28)
+  val @(e44, a44) = _round(a43, a42, a41, a40, e43, e42, e41, e40, 0xd192e819u + w44)
+  val w45 = _schedule(w43, w38, w30, w29)
+  val @(e45, a45) = _round(a44, a43, a42, a41, e44, e43, e42, e41, 0xd6990624u + w45)
+  val w46 = _schedule(w44, w39, w31, w30)
+  val @(e46, a46) = _round(a45, a44, a43, a42, e45, e44, e43, e42, 0xf40e3585u + w46)
+  val w47 = _schedule(w45, w40, w32, w31)
+  val @(e47, a47) = _round(a46, a45, a44, a43, e46, e45, e44, e43, 0x106aa070u + w47)
+  val w48 = _schedule(w46, w41, w33, w32)
+  val @(e48, a48) = _round(a47, a46, a45, a44, e47, e46, e45, e44, 0x19a4c116u + w48)
+  val w49 = _schedule(w47, w42, w34, w33)
+  val @(e49, a49) = _round(a48, a47, a46, a45, e48, e47, e46, e45, 0x1e376c08u + w49)
+  val w50 = _schedule(w48, w43, w35, w34)
+  val @(e50, a50) = _round(a49, a48, a47, a46, e49, e48, e47, e46, 0x2748774cu + w50)
+  val w51 = _schedule(w49, w44, w36, w35)
+  val @(e51, a51) = _round(a50, a49, a48, a47, e50, e49, e48, e47, 0x34b0bcb5u + w51)
+  val w52 = _schedule(w50, w45, w37, w36)
+  val @(e52, a52) = _round(a51, a50, a49, a48, e51, e50, e49, e48, 0x391c0cb3u + w52)
+  val w53 = _schedule(w51, w46, w38, w37)
+  val @(e53, a53) = _round(a52, a51, a50, a49, e52, e51, e50, e49, 0x4ed8aa4au + w53)
+  val w54 = _schedule(w52, w47, w39, w38)
+  val @(e54, a54) = _round(a53, a52, a51, a50, e53, e52, e51, e50, 0x5b9cca4fu + w54)
+  val w55 = _schedule(w53, w48, w40, w39)
+  val @(e55, a55) = _round(a54, a53, a52, a51, e54, e53, e52, e51, 0x682e6ff3u + w55)
+  val w56 = _schedule(w54, w49, w41, w40)
+  val @(e56, a56) = _round(a55, a54, a53, a52, e55, e54, e53, e52, 0x748f82eeu + w56)
+  val w57 = _schedule(w55, w50, w42, w41)
+  val @(e57, a57) = _round(a56, a55, a54, a53, e56, e55, e54, e53, 0x78a5636fu + w57)
+  val w58 = _schedule(w56, w51, w43, w42)
+  val @(e58, a58) = _round(a57, a56, a55, a54, e57, e56, e55, e54, 0x84c87814u + w58)
+  val w59 = _schedule(w57, w52, w44, w43)
+  val @(e59, a59) = _round(a58, a57, a56, a55, e58, e57, e56, e55, 0x8cc70208u + w59)
+  val w60 = _schedule(w58, w53, w45, w44)
+  val @(e60, a60) = _round(a59, a58, a57, a56, e59, e58, e57, e56, 0x90befffau + w60)
+  val w61 = _schedule(w59, w54, w46, w45)
+  val @(e61, a61) = _round(a60, a59, a58, a57, e60, e59, e58, e57, 0xa4506cebu + w61)
+  val w62 = _schedule(w60, w55, w47, w46)
+  val @(e62, a62) = _round(a61, a60, a59, a58, e61, e60, e59, e58, 0xbef9a3f7u + w62)
+  val w63 = _schedule(w61, w56, w48, w47)
+  val @(e63, a63) = _round(a62, a61, a60, a59, e62, e61, e60, e59, 0xc67178f2u + w63)
+  val () = $A.set<uint>(h, 0, h0 + a63)
+  val () = $A.set<uint>(h, 1, h1 + a62)
+  val () = $A.set<uint>(h, 2, h2 + a61)
+  val () = $A.set<uint>(h, 3, h3 + a60)
+  val () = $A.set<uint>(h, 4, h4 + e63)
+  val () = $A.set<uint>(h, 5, h5 + e62)
+  val () = $A.set<uint>(h, 6, h6 + e61)
+  val () = $A.set<uint>(h, 7, h7 + e60)
+(* end generated by scripts/gen-fast-compress.py *)
 in end
 
 (* The one or two padding blocks in pad[0, last). *)
@@ -2139,13 +2224,21 @@ implement init () = let
 in ctx_mk(h, $A.alloc<uint>(64), $A.alloc<byte>(64), 0, 0u, 0u) end
 
 (* data[i, k) appended to the block in buf[0, b), compressing each block
-   as it fills; the bytes left in the block *)
+   as it fills; the bytes left in the block. With the block empty, a whole
+   block of data is compressed where it lies, with no copy. *)
 fun _fill {lh,lw,lb,ld:agz}{n:pos}{k:nat | k <= n}{i:nat | i <= k}{b:nat | b < 64}
   .<k - i>.
   (h: !$A.arr(uint, lh, 8), w: !$A.arr(uint, lw, 64), buf: !$A.arr(byte, lb, 64),
    data: !$A.arr(byte, ld, n), k: int k, i: int i, b: int b)
   : [b2:nat | b2 < 64] int b2 =
   if i >= k then b
+  else if b = 0 then
+    (if i + 64 > k then let
+       val () = $A.set<byte>(buf, 0, $A.get<byte>(data, i))
+     in _fill(h, w, buf, data, k, i + 1, 1) end
+     else let
+       val () = _compress(data, i, w, h)
+     in _fill(h, w, buf, data, k, i + 64, 0) end)
   else let
     val () = $A.set<byte>(buf, b, $A.get<byte>(data, i))
   in

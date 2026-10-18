@@ -1,0 +1,8 @@
+[package]
+name = "bench"
+kind = "bin"
+unsafe = true
+
+[dependencies]
+"array" = ""
+"sha256" = ""
