@@ -71,13 +71,17 @@
 fn _round (a: uint, b: uint, c: uint, d: uint, e: uint, f: uint, g: uint, h: uint,
            kw: uint, bc: uint): @(uint, uint, uint) = let
   val e9 = (e >> 14) lor (e << 18)
-  val e5 = ((e9 lxor e) >> 5) lor ((e9 lxor e) << 27)
-  val t1 = h + (((e5 lxor e) >> 6) lor ((e5 lxor e) << 26))
+  val e9x = e9 lxor e
+  val e5 = (e9x >> 5) lor (e9x << 27)
+  val e5x = e5 lxor e
+  val t1 = h + ((e5x >> 6) lor (e5x << 26))
     + (g lxor (e land (f lxor g))) + kw
   val a9 = (a >> 9) lor (a << 23)
-  val a11 = ((a9 lxor a) >> 11) lor ((a9 lxor a) << 21)
+  val a9x = a9 lxor a
+  val a11 = (a9x >> 11) lor (a9x << 21)
+  val a11x = a11 lxor a
   val ab = a lxor b
-  val t2 = (((a11 lxor a) >> 2) lor ((a11 lxor a) << 30)) + (b lxor (ab land bc))
+  val t2 = ((a11x >> 2) lor (a11x << 30)) + (b lxor (ab land bc))
 in @(d + t1, t1 + t2, ab) end
 
 (* W_t of a block from the words before it: sigma1(W_t-2) + W_t-7 +
