@@ -2,10 +2,11 @@
 #use array as A
 #use sha256 as SHA
 
-(* A microbenchmark of the fast SHA-256 (sha256#40): hashes 1 MiB
-   BENCH_ITERATIONS times (default 20) with hash, and with BENCH_API=
+(* A microbenchmark of SHA-256 (sha256#40): hashes 1 MiB
+   BENCH_ITERATIONS times (default 20) with hash, with BENCH_API=
    incremental in pieces of 4096 bytes through init, update and finish
-   (what bats does). It prints the first digest and, on stderr, the
+   (what bats does), and with BENCH_API=proved by proved_hash, the code the
+   proofs are about (#48). It prints the first digest and, on stderr, the
    milliseconds a MiB and the bytes a second. tests/bench/run.sh runs it
    natively, in debug and release, and under callgrind for instructions a
    byte. *)
@@ -30,6 +31,10 @@ static int bench_incremental (void) {
   const char *s = getenv("BENCH_API");
   return s != NULL && strcmp(s, "incremental") == 0;
 }
+static int bench_proved (void) {
+  const char *s = getenv("BENCH_API");
+  return s != NULL && strcmp(s, "proved") == 0;
+}
 static void bench_report (int iterations, double ms) {
   fprintf(stderr, "%d x 1 MiB: %.2f ms a MiB, %.1f MB/s\n", iterations,
           ms / iterations, iterations * 1.048576 / ms * 1000.0);
@@ -39,6 +44,7 @@ static void bench_report (int iterations, double ms) {
 extern fun bench_now_ms (): double = "mac#"
 extern fun bench_iterations (): [k:nat] int k = "mac#"
 extern fun bench_incremental (): int = "mac#"
+extern fun bench_proved (): int = "mac#"
 extern fun bench_report (iterations: int, ms: double): void = "mac#"
 end
 
@@ -51,6 +57,9 @@ fun fill {l:agz}{n:pos}{i:nat | i <= n} .<n - i>.
 
 fn once_hash {l:agz}{lo:agz}(d: !$A.arr(byte, l, 1048576), o: !$A.arr(byte, lo, 64)): void =
   $SHA.hash(d, 1048576, o)
+
+fn once_proved {l:agz}{lo:agz}(d: !$A.arr(byte, l, 1048576), o: !$A.arr(byte, lo, 64)): void =
+  $SHA.proved_hash(d, 1048576, o)
 
 fn once_incremental {l:agz}{lo:agz}(d: !$A.arr(byte, l, 1048576), o: !$A.arr(byte, lo, 64)): void = let
   val c = $SHA.init()
@@ -65,11 +74,11 @@ fn once_incremental {l:agz}{lo:agz}(d: !$A.arr(byte, l, 1048576), o: !$A.arr(byt
 in $SHA.finish(c, o) end
 
 fun loop {l:agz}{lo:agz}{k:nat} .<k>.
-  (d: !$A.arr(byte, l, 1048576), o: !$A.arr(byte, lo, 64), inc: bool, k: int k): void =
+  (d: !$A.arr(byte, l, 1048576), o: !$A.arr(byte, lo, 64), inc: bool, proved: bool, k: int k): void =
   if k <= 0 then ()
   else let
-    val () = if inc then once_incremental(d, o) else once_hash(d, o)
-  in loop(d, o, inc, k - 1) end
+    val () = if proved then once_proved(d, o) else if inc then once_incremental(d, o) else once_hash(d, o)
+  in loop(d, o, inc, proved, k - 1) end
 
 implement main0 () = let
   val d = $A.alloc<byte>(1048576)
@@ -77,8 +86,9 @@ implement main0 () = let
   val o = $A.alloc<byte>(64)
   val n = bench_iterations()
   val inc = (bench_incremental() > 0)
+  val proved = (bench_proved() > 0)
   val t0 = bench_now_ms()
-  val () = loop(d, o, inc, n)
+  val () = loop(d, o, inc, proved, n)
   val t1 = bench_now_ms()
   val () = bench_report(n, t1 - t0)
   fun show {lo:agz}{i:nat | i <= 64} .<64 - i>.

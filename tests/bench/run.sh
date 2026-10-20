@@ -26,7 +26,7 @@ cp -R "$ROOT/tests/bench/bench" "$TMP/w"
 (cd "$TMP/w" && bats lock --dev --repository "$TMP/repo" && bats build --only "$MODE" --only native --repository "$TMP/repo") > "$TMP/build.log" 2>&1 \
   || { cat "$TMP/build.log"; exit 1; }
 BIN="$TMP/w/dist/$MODE/bench"
-for api in hash incremental; do
+for api in ${BENCH_APIS:-hash incremental proved}; do
   echo "== $MODE, $api"
   # the least of 5 runs of 20 MiB: the machine is shared
   for r in 1 2 3 4 5; do

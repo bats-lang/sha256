@@ -4,5 +4,5 @@ kind = "lib"
 unsafe = false
 
 [dependencies]
-"arith" = ">= 2026.10.15.4016"
+"arith" = ">= 2026.10.18.72662"
 "array" = ""
