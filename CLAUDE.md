@@ -445,3 +445,51 @@ times slower than the fast code, #34). It is not what bats and quire call. The
 about 52): the rest is the proof's own work, and the way to its speed is
 #34's last comment, not these changes.
 
+## The proved SHA-256 within 2x of the fast one (bats-lang/sha256#59)
+
+`proved_hash` over 1 MiB (release, native, callgrind, `tests/bench` with
+`BENCH_APIS=proved`, the same scratch repository for both): **393.9
+instructions a byte before, 94.0 after** (37.8 ms a MiB before, 5.6 after), the
+fast `hash` 52.4 (3.7 ms a MiB): 1.79 times the fast code's instructions and
+1.5 times its time. The digest is the same (`8816f31b...`), `hash` and the
+incremental API are untouched (52.4 and 52.4). The earlier sections' figures
+for `proved_hash` (about 30 times slower, 211 to 239 ms a MiB) are the code
+before this change.
+
+What it was: the proved code's words were one `uint` already (#40's stage F), and
+its cost was calls.
+Each `#pub fun` of arith and array is an external symbol compiled alone at `-O2`,
+so `barr_get_be32`, `barr_set`, `word32_pack`, `word32_rotr` and `word32_byte`
+(175.8 of 394.0 instructions a byte, #55's profile) were calls. What is done,
+in this order, each measured:
+
+1. **The five as templates.** arith's `word32_rotr_inline`, `word32_pack_inline`,
+   `word32_byte_inline` and array's `barr_get_inline`, `barr_get_be32_inline`,
+   `barr_set_inline` are `#pub fun{}` templates with the types and bodies of the
+   old names: a dependent instantiates them in its own translation unit (it loads
+   the package's `lib.dats`), so the C compiler inlines them. This package calls
+   them everywhere (the old names are not called here any more; they stay in
+   arith and array). arith alone: 393.9 to 277.5; with array's: 113.0; with
+   `word32_pack_inline` in the constants too: 103.0. Nothing new is trusted
+   (arith's and array's CLAUDE.md), no `$UNSAFE` is added here, the package
+   is `unsafe = false`.
+2. **The round constants as a chain of equalities** (`sha256_k_w32`). It was a
+   binary search of six comparisons for each round (15 instructions a byte, a
+   call that was not inlined); `if t = 0 ... else if t = 1 ...` is the same
+   function with the same proof of `SHA256_K(t, ...)` in each leaf (the solver
+   still proves the last one is 63 from the 63 inequalities), which the C compiler
+   compiles to about 6 instructions a byte instead of 15: 103.0 to 94.0.
+
+What is left (94.0): `sha256_compress` 58 a byte (the rounds, the sigmas, the
+reads of the schedule words), `schedule_sha256` 28 (the 48 expanded words, about
+37 instructions each: the word written by the previous step is read back from the
+array byte by byte, which the C compiler does not forward), and the bench's own
+fill. Reaching the fast code's 52 needs the schedule out of the array (the
+proofs follow the array's cells, `SCHEDULE_ARRAY`) or unrolled rounds; not done.
+
+Proved, tested, trusted: unchanged. Every proof is the same term (the
+templates have the types of the functions they replace), checked by the gmp
+solver; `tests/dynamic` (15 tests, `proved` and `sizes` included) and
+`tests/static` (105 fixtures) pass. The new arith and array versions must be
+published (a repository-prototype publish of both, with this package's relock)
+before this builds in CI: it calls their `_inline` names.
