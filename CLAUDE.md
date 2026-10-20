@@ -32,9 +32,12 @@ own. A pull request that needs newer packages runs `bats lock
 ## The word functions are proved (bats-lang/sha256#29, stage A)
 
 `word_ch`, `word_maj`, `big_sigma_0`, `big_sigma_1`, `small_sigma_0` and
-`small_sigma_1` take and give a word as its two 16-bit halves (arith's
-`rotr`, `shr`, `add32`, `xor32`, `and32`; the solver is 32-bit, so no
-proof names 2 to the 32) and return the proof of the relation `CH`, `MAJ`,
+`small_sigma_1` take and give a word as its two 16-bit halves in the
+published forms (deprecated, sha256#48: one published version holds both,
+then they are removed). The `_w32` forms (`word_ch_w32`, `big_sigma_0_w32`,
+...) take and give one `word32(h, l)` (arith's C unsigned int, the halves in
+its type), so no proof names 2 to the 32 (the solver is 32-bit). Both return
+the proof of the relation `CH`, `MAJ`,
 `BIG_SIGMA_0`, ... that is the standard's definition (FIPS 180-4, section
 4.1.2) composed from arith's bit specifications. `tests/dynamic/word_functions`
 runs them on the published trace of SHA-256 over "abc". The digest
@@ -49,8 +52,9 @@ fast unproved code, unchanged.
 (array's `barr`, whose cells are in its type) from `at` are the word
 high:low, big endian; `WORD_SET(cells, at, high, low, cells2)` says four
 cells were set to it. A word needs no array of its own and no change to the
-array package: `word_get` and `word_set` are four `barr_get`s and
-`barr_set`s, and `word_set_at`, `word_set_other` (a word that shares no cell
+array package: `word_get_w32` reads its four bytes with one call to array's
+`barr_get_be32` (sha256#53; its four `NTH` proofs go straight to `WORD_AT`),
+and the halves `word_get` is four `barr_get`s; `barr_set`s write, and `word_set_at`, `word_set_other` (a word that shares no cell
 with the one set is as it was) and `word_at_functional` are proved from
 array's `setc_nth_same`, `setc_nth_other` and `nth_functional`. A message
 block's words are the bytes it is, read in place at `at`, so loading a
@@ -272,8 +276,9 @@ its choice by name:
   build. Tested, not proved (`tests/dynamic/vectors`, `sizes`, `proved`).
 * **`proved_hash`, `proved_init`, `proved_update`, `proved_finish`** (and
   `proved_ctx`): the same types, running the proved code (stages A to D) through
-  `init256_proved`, `update256_proved`, `finish256_proved`. About 30 times slower
-  (below), so nothing switches to it until it is fast enough (#34). A message
+  `init256_proved`, `update256_proved`, `finish256_proved`. About 7.5 times slower
+  than `hash` (452 instructions a byte before sha256#53, 394 after; `hash` 52),
+  so nothing switches to it until it is fast enough (#34). A message
   that reaches its largest length (about 2^45 bytes) takes no more bytes.
 * **`sha1_digest`**: the proved SHA-1 (`init1_proved`, `update1_proved`,
   `finish1_proved` over the same `HELD`, `COUNTED` and padding proofs). SHA-1 had
@@ -433,8 +438,10 @@ What is left in a debug build is the call of each `uint` operation (about
 build's, not this code's (compiling the dependencies of a debug build with
 `-O1`, or the operations as `always_inline`, is bats').
 
-**The proved SHA-256 was not made faster by this** (`proved_hash`: 30 times
-slower than the fast code, #34). It is not what bats and quire call, its
-halves-based words are the cost, and the way to its speed is the single-word
-design of #34's last comment, not these changes.
+**The proved SHA-256 was not made faster by this** (`proved_hash`: about 7.5
+times slower than the fast code, #34). It is not what bats and quire call. The
+`_w32` words (sha256#52) and the `barr_get_be32` read (sha256#53) took it from
+452 to 394 instructions a byte (callgrind, release, 1 MiB; the fast `hash`
+about 52): the rest is the proof's own work, and the way to its speed is
+#34's last comment, not these changes.
 

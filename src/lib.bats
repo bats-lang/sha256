@@ -328,10 +328,7 @@ in (SMALL_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
   : [high,low:nat | high < 65536; low < 65536] (WORD_AT(cs, at, high, low) | $AR.word32(high, low))
 
 implement word_get_w32 {l}{n,at}{cs} (cells, at) = let
-  val (first | b0) = $A.barr_get(cells, at)
-  val (second | b1) = $A.barr_get(cells, at + 1)
-  val (third | b2) = $A.barr_get(cells, at + 2)
-  val (fourth | b3) = $A.barr_get(cells, at + 3)
+  val (first, second, third, fourth | @(b0, b1, b2, b3)) = $A.barr_get_be32(cells, at)
   val word_value = $AR.word32_pack(b0, b1, b2, b3)
 in (WORD_AT_mk(first, second, third, fourth) | word_value) end
 
