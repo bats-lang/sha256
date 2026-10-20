@@ -6,9 +6,12 @@
    32-bit unsigned int, as on every bats target (LP64 and ILP32 native,
    wasm32); it is tested, not proved. proved_hash, proved_init, proved_update
    and proved_finish, and sha1_digest, run the proved code: a 32-bit word is
-   its two 16-bit halves (arith's ROTR, SHR, ADD32) and the digest is the one
-   the proofs are about (sha256#29). The proved code is about 30 times slower
-   (sha256#34), so the fast API is not replaced by it. *)
+   arith's word32, one machine word at run time and its two 16-bit halves in
+   the types (arith's ROTR, SHR, ADD32), and the digest is the one the proofs
+   are about (sha256#29). The proved code is about 8 times slower than the
+   fast one in a release build (452 instructions a byte against 52; it was 30
+   times slower with a word as two ints, sha256#34, #40, #48), so the fast API
+   is not replaced by it yet. *)
 
 #include "share/atspre_staload.hats"
 
@@ -89,8 +92,9 @@ fn _u (x: int): uint = g0int2uint_int_uint(x)
 (* ============================================================
    The word functions, proved (FIPS 180-4, section 4.1.2)
 
-   A word is its two 16-bit halves (arith's ROTR, SHR, ADD32: the solver
-   is 32-bit, so no proof names 2 to the 32). Each relation below is the
+   A word is arith's word32(high, low): one unsigned int at run time, and
+   in the types its two 16-bit halves (arith's ROTR, SHR, ADD32: the solver
+   of an int build is 32-bit, so no proof names 2 to the 32). Each relation below is the
    standard's definition of the function, composed from arith's
    specifications of the bit operations; each function returns the proof
    that its result is related to its arguments (sha256#29).
@@ -149,6 +153,18 @@ fn _u (x: int): uint = g0int2uint_int_uint(x)
       $AR.XOR(ah, bh, sh), $AR.XOR(al, bl, sl),
       $AR.XOR(sh, ch, rh), $AR.XOR(sl, cl, rl))
 
+#pub fun word_ch_w32 {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
+  (x: $AR.word32(xh, xl), y: $AR.word32(yh, yl), z: $AR.word32(zh, zl))
+  : [rh,rl:nat | rh < 65536; rl < 65536] (CH(xh, xl, yh, yl, zh, zl, rh, rl) | $AR.word32(rh, rl))
+
+implement word_ch_w32 (x, y, z) = let
+  val (pah, pal | a) = $AR.word32_and(x, y)
+  val (pnot | n) = $AR.word32_not(x)
+  val (pbh, pbl | b) = $AR.word32_and(n, z)
+  val (prh, prl | r) = $AR.word32_xor(a, b)
+in (CH_mk(pah, pal, pnot, pbh, pbl, prh, prl) | r) end
+
+(* Deprecated (sha256#48): word_ch is kept as published, with the two 16-bit halves as ints; use word_ch_w32. It is removed in a later version, after one published version with both. *)
 #pub fun word_ch {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
   (xh: int xh, xl: int xl, yh: int yh, yl: int yl, zh: int zh, zl: int zl)
   : [rh,rl:nat | rh < 65536; rl < 65536] (CH(xh, xl, yh, yl, zh, zl, rh, rl) | @(int rh, int rl))
@@ -160,6 +176,19 @@ implement word_ch (xh, xl, yh, yl, zh, zl) = let
   val (prh, prl | @(rh, rl)) = $AR.xor32(ah, al, bh, bl)
 in (CH_mk(pah, pal, pnot, pbh, pbl, prh, prl) | @(rh, rl)) end
 
+#pub fun word_maj_w32 {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
+  (x: $AR.word32(xh, xl), y: $AR.word32(yh, yl), z: $AR.word32(zh, zl))
+  : [rh,rl:nat | rh < 65536; rl < 65536] (MAJ(xh, xl, yh, yl, zh, zl, rh, rl) | $AR.word32(rh, rl))
+
+implement word_maj_w32 (x, y, z) = let
+  val (pah, pal | a) = $AR.word32_and(x, y)
+  val (pbh, pbl | b) = $AR.word32_and(x, z)
+  val (pch, pcl | c) = $AR.word32_and(y, z)
+  val (psh, psl | s) = $AR.word32_xor(a, b)
+  val (prh, prl | r) = $AR.word32_xor(s, c)
+in (MAJ_mk(pah, pal, pbh, pbl, pch, pcl, psh, psl, prh, prl) | r) end
+
+(* Deprecated (sha256#48): word_maj is kept as published, with the two 16-bit halves as ints; use word_maj_w32. It is removed in a later version, after one published version with both. *)
 #pub fun word_maj {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
   (xh: int xh, xl: int xl, yh: int yh, yl: int yl, zh: int zh, zl: int zl)
   : [rh,rl:nat | rh < 65536; rl < 65536] (MAJ(xh, xl, yh, yl, zh, zl, rh, rl) | @(int rh, int rl))
@@ -172,6 +201,18 @@ implement word_maj (xh, xl, yh, yl, zh, zl) = let
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
 in (MAJ_mk(pah, pal, pbh, pbl, pch, pcl, psh, psl, prh, prl) | @(rh, rl)) end
 
+#pub fun big_sigma_0_w32 {xh,xl:nat | xh < 65536; xl < 65536} (x: $AR.word32(xh, xl))
+  : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_0(xh, xl, rh, rl) | $AR.word32(rh, rl))
+
+implement big_sigma_0_w32 (x) = let
+  val (pa | a) = $AR.word32_rotr(x, 2)
+  val (pb | b) = $AR.word32_rotr(x, 13)
+  val (pc | c) = $AR.word32_rotr(x, 22)
+  val (psh, psl | s) = $AR.word32_xor(a, b)
+  val (prh, prl | r) = $AR.word32_xor(s, c)
+in (BIG_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | r) end
+
+(* Deprecated (sha256#48): big_sigma_0 is kept as published, with the two 16-bit halves as ints; use big_sigma_0_w32. It is removed in a later version, after one published version with both. *)
 #pub fun big_sigma_0 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
   : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_0(xh, xl, rh, rl) | @(int rh, int rl))
 
@@ -183,6 +224,18 @@ implement big_sigma_0 (xh, xl) = let
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
 in (BIG_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
 
+#pub fun big_sigma_1_w32 {xh,xl:nat | xh < 65536; xl < 65536} (x: $AR.word32(xh, xl))
+  : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_1(xh, xl, rh, rl) | $AR.word32(rh, rl))
+
+implement big_sigma_1_w32 (x) = let
+  val (pa | a) = $AR.word32_rotr(x, 6)
+  val (pb | b) = $AR.word32_rotr(x, 11)
+  val (pc | c) = $AR.word32_rotr(x, 25)
+  val (psh, psl | s) = $AR.word32_xor(a, b)
+  val (prh, prl | r) = $AR.word32_xor(s, c)
+in (BIG_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | r) end
+
+(* Deprecated (sha256#48): big_sigma_1 is kept as published, with the two 16-bit halves as ints; use big_sigma_1_w32. It is removed in a later version, after one published version with both. *)
 #pub fun big_sigma_1 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
   : [rh,rl:nat | rh < 65536; rl < 65536] (BIG_SIGMA_1(xh, xl, rh, rl) | @(int rh, int rl))
 
@@ -194,6 +247,18 @@ implement big_sigma_1 (xh, xl) = let
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
 in (BIG_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
 
+#pub fun small_sigma_0_w32 {xh,xl:nat | xh < 65536; xl < 65536} (x: $AR.word32(xh, xl))
+  : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_0(xh, xl, rh, rl) | $AR.word32(rh, rl))
+
+implement small_sigma_0_w32 (x) = let
+  val (pa | a) = $AR.word32_rotr(x, 7)
+  val (pb | b) = $AR.word32_rotr(x, 18)
+  val (pc | c) = $AR.word32_shr(x, 3)
+  val (psh, psl | s) = $AR.word32_xor(a, b)
+  val (prh, prl | r) = $AR.word32_xor(s, c)
+in (SMALL_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | r) end
+
+(* Deprecated (sha256#48): small_sigma_0 is kept as published, with the two 16-bit halves as ints; use small_sigma_0_w32. It is removed in a later version, after one published version with both. *)
 #pub fun small_sigma_0 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
   : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_0(xh, xl, rh, rl) | @(int rh, int rl))
 
@@ -205,6 +270,18 @@ implement small_sigma_0 (xh, xl) = let
   val (prh, prl | @(rh, rl)) = $AR.xor32(sh, sl, ch, cl)
 in (SMALL_SIGMA_0_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
 
+#pub fun small_sigma_1_w32 {xh,xl:nat | xh < 65536; xl < 65536} (x: $AR.word32(xh, xl))
+  : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_1(xh, xl, rh, rl) | $AR.word32(rh, rl))
+
+implement small_sigma_1_w32 (x) = let
+  val (pa | a) = $AR.word32_rotr(x, 17)
+  val (pb | b) = $AR.word32_rotr(x, 19)
+  val (pc | c) = $AR.word32_shr(x, 10)
+  val (psh, psl | s) = $AR.word32_xor(a, b)
+  val (prh, prl | r) = $AR.word32_xor(s, c)
+in (SMALL_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | r) end
+
+(* Deprecated (sha256#48): small_sigma_1 is kept as published, with the two 16-bit halves as ints; use small_sigma_1_w32. It is removed in a later version, after one published version with both. *)
 #pub fun small_sigma_1 {xh,xl:nat | xh < 65536; xl < 65536} (xh: int xh, xl: int xl)
   : [rh,rl:nat | rh < 65536; rl < 65536] (SMALL_SIGMA_1(xh, xl, rh, rl) | @(int rh, int rl))
 
@@ -246,6 +323,19 @@ in (SMALL_SIGMA_1_mk(pa, pb, pc, psh, psl, prh, prl) | @(rh, rl)) end
       $A.SETC(cs2, at + 2, b2, cs3), $A.SETC(cs3, at + 3, b3, cs4))
 
 (* The word at `at`, with the proof that it is *)
+#pub fun word_get_w32 {l:agz}{n,at:nat | at + 3 < n}{cs:$A.cells}
+  (cells: !$A.barr(l, n, cs), at: int at)
+  : [high,low:nat | high < 65536; low < 65536] (WORD_AT(cs, at, high, low) | $AR.word32(high, low))
+
+implement word_get_w32 {l}{n,at}{cs} (cells, at) = let
+  val (first | b0) = $A.barr_get(cells, at)
+  val (second | b1) = $A.barr_get(cells, at + 1)
+  val (third | b2) = $A.barr_get(cells, at + 2)
+  val (fourth | b3) = $A.barr_get(cells, at + 3)
+  val word_value = $AR.word32_pack(b0, b1, b2, b3)
+in (WORD_AT_mk(first, second, third, fourth) | word_value) end
+
+(* Deprecated (sha256#48): word_get is kept as published, with the two 16-bit halves as ints; use word_get_w32. It is removed in a later version, after one published version with both. *)
 #pub fun word_get {l:agz}{n,at:nat | at + 3 < n}{cs:$A.cells}
   (cells: !$A.barr(l, n, cs), at: int at)
   : [high,low:nat | high < 65536; low < 65536] (WORD_AT(cs, at, high, low) | @(int high, int low))
@@ -258,6 +348,26 @@ implement word_get {l}{n,at}{cs} (cells, at) = let
 in (WORD_AT_mk(first, second, third, fourth) | @(256 * b0 + b1, 256 * b2 + b3)) end
 
 (* The four cells from `at` set to the word, with the proof that they are *)
+#pub fun word_set_w32 {l:agz}{n,at:nat | at + 3 < n}{cs:$A.cells}{high,low:nat | high < 65536; low < 65536}
+  (cells: $A.barr(l, n, cs), at: int at, word_value: $AR.word32(high, low))
+  : [cs2:$A.cells] (WORD_SET(cs, at, high, low, cs2) | $A.barr(l, n, cs2))
+
+implement word_set_w32 {l}{n,at}{cs}{high,low} (cells, at, word_value) = let
+  val (byte0 | b0) = $AR.word32_byte(word_value, 0)
+  val (byte1 | b1) = $AR.word32_byte(word_value, 1)
+  val (byte2 | b2) = $AR.word32_byte(word_value, 2)
+  val (byte3 | b3) = $AR.word32_byte(word_value, 3)
+  prval $AR.WORD_BYTE_0() = byte0
+  prval $AR.WORD_BYTE_1() = byte1
+  prval $AR.WORD_BYTE_2() = byte2
+  prval $AR.WORD_BYTE_3() = byte3
+  val (first | cells) = $A.barr_set(cells, at, b0)
+  val (second | cells) = $A.barr_set(cells, at + 1, b1)
+  val (third | cells) = $A.barr_set(cells, at + 2, b2)
+  val (fourth | cells) = $A.barr_set(cells, at + 3, b3)
+in (WORD_SET_mk(first, second, third, fourth) | cells) end
+
+(* Deprecated (sha256#48): word_set is kept as published, with the two 16-bit halves as ints; use word_set_w32. It is removed in a later version, after one published version with both. *)
 #pub fun word_set {l:agz}{n,at:nat | at + 3 < n}{cs:$A.cells}{high,low:nat | high < 65536; low < 65536}
   (cells: $A.barr(l, n, cs), at: int at, high: int high, low: int low)
   : [cs2:$A.cells] (WORD_SET(cs, at, high, low, cs2) | $A.barr(l, n, cs2))
@@ -403,8 +513,8 @@ fun _schedule_load {kind:schedule_kind}{lm:agz}{nm:nat}{msg:$A.cells}{at:nat | a
   : [words2:$A.cells] (SCHEDULE_ARRAY(kind, words2, msg, at, 16) | $A.barr(lw, nw, words2)) =
   if t >= 16 then (loaded | array)
   else let
-    val (read | @(high, low)) = word_get(message, at + 4 * t)
-    val (set | array) = word_set(array, 4 * t, high, low)
+    val (read | word_value) = word_get_w32(message, at + 4 * t)
+    val (set | array) = word_set_w32(array, 4 * t, word_value)
     prval kept = schedule_array_frame(set, loaded)
   in _schedule_load(message, at, array, t + 1,
        SCHEDULE_ARRAY_cons(kept, word_set_at(set), SCHEDULE_message(read))) end
@@ -412,11 +522,11 @@ fun _schedule_load {kind:schedule_kind}{lm:agz}{nm:nat}{msg:$A.cells}{at:nat | a
 (* Word i of the array read and tied to the standard's W_i *)
 fn _scheduled {kind:schedule_kind}{lw:agz}{nw:nat}{words,msg:$A.cells}{at,count,i:nat | i < count; 4*i + 3 < nw}
   (array: !$A.barr(lw, nw, words), listed: SCHEDULE_ARRAY(kind, words, msg, at, count), i: int i)
-  : [high,low:nat | high < 65536; low < 65536] (SCHEDULE(kind, msg, at, i, high, low) | @(int high, int low)) = let
-  val (read | @(high, low)) = word_get(array, 4 * i)
+  : [high,low:nat | high < 65536; low < 65536] (SCHEDULE(kind, msg, at, i, high, low) | $AR.word32(high, low)) = let
+  val (read | word_value) = word_get_w32(array, 4 * i)
   prval @(known, specified) = schedule_array_get{kind}{words,msg}{at,count,i}(listed)
   prval () = word_at_functional(read, known)
-in (specified | @(high, low)) end
+in (specified | word_value) end
 
 (* W_t for t from 16 to 63 of SHA-256, each from the earlier ones *)
 fun _schedule_sha256_expand {lw:agz}{words:$A.cells}{msg:$A.cells}{at:nat}{t:nat | 16 <= t; t <= 64} .<64 - t>.
@@ -425,16 +535,16 @@ fun _schedule_sha256_expand {lw:agz}{words:$A.cells}{msg:$A.cells}{at:nat}{t:nat
   : [words2:$A.cells] (SCHEDULE_ARRAY(sha256_kind(), words2, msg, at, 64) | $A.barr(lw, 256, words2)) =
   if t >= 64 then (listed | array)
   else let
-    val (back2 | @(back2_high, back2_low)) = _scheduled(array, listed, t - 2)
-    val (back7 | @(back7_high, back7_low)) = _scheduled(array, listed, t - 7)
-    val (back15 | @(back15_high, back15_low)) = _scheduled(array, listed, t - 15)
-    val (back16 | @(back16_high, back16_low)) = _scheduled(array, listed, t - 16)
-    val (sigma1 | @(s1_high, s1_low)) = small_sigma_1(back2_high, back2_low)
-    val (sigma0 | @(s0_high, s0_low)) = small_sigma_0(back15_high, back15_low)
-    val (add1 | @(sum1_high, sum1_low)) = $AR.add32(s1_high, s1_low, back7_high, back7_low)
-    val (add2 | @(sum2_high, sum2_low)) = $AR.add32(sum1_high, sum1_low, s0_high, s0_low)
-    val (add3 | @(high, low)) = $AR.add32(sum2_high, sum2_low, back16_high, back16_low)
-    val (set | array) = word_set(array, 4 * t, high, low)
+    val (back2 | back2_word) = _scheduled(array, listed, t - 2)
+    val (back7 | back7_word) = _scheduled(array, listed, t - 7)
+    val (back15 | back15_word) = _scheduled(array, listed, t - 15)
+    val (back16 | back16_word) = _scheduled(array, listed, t - 16)
+    val (sigma1 | s1_word) = small_sigma_1_w32(back2_word)
+    val (sigma0 | s0_word) = small_sigma_0_w32(back15_word)
+    val (add1 | sum1_word) = $AR.word32_add(s1_word, back7_word)
+    val (add2 | sum2_word) = $AR.word32_add(sum1_word, s0_word)
+    val (add3 | word_value) = $AR.word32_add(sum2_word, back16_word)
+    val (set | array) = word_set_w32(array, 4 * t, word_value)
     prval kept = schedule_array_frame(set, listed)
     prval specified = SCHEDULE_sha256(back2, back7, back15, back16, sigma1, sigma0, add1, add2, add3)
   in _schedule_sha256_expand(array, t + 1,
@@ -447,15 +557,15 @@ fun _schedule_sha1_expand {lw:agz}{words:$A.cells}{msg:$A.cells}{at:nat}{t:nat |
   : [words2:$A.cells] (SCHEDULE_ARRAY(sha1_kind(), words2, msg, at, 80) | $A.barr(lw, 320, words2)) =
   if t >= 80 then (listed | array)
   else let
-    val (back3 | @(back3_high, back3_low)) = _scheduled(array, listed, t - 3)
-    val (back8 | @(back8_high, back8_low)) = _scheduled(array, listed, t - 8)
-    val (back14 | @(back14_high, back14_low)) = _scheduled(array, listed, t - 14)
-    val (back16 | @(back16_high, back16_low)) = _scheduled(array, listed, t - 16)
-    val (xor1_high, xor1_low | @(x1_high, x1_low)) = $AR.xor32(back3_high, back3_low, back8_high, back8_low)
-    val (xor2_high, xor2_low | @(x2_high, x2_low)) = $AR.xor32(x1_high, x1_low, back14_high, back14_low)
-    val (xor3_high, xor3_low | @(x3_high, x3_low)) = $AR.xor32(x2_high, x2_low, back16_high, back16_low)
-    val (turned | @(high, low)) = $AR.rotr_fast(31, x3_high, x3_low)
-    val (set | array) = word_set(array, 4 * t, high, low)
+    val (back3 | back3_word) = _scheduled(array, listed, t - 3)
+    val (back8 | back8_word) = _scheduled(array, listed, t - 8)
+    val (back14 | back14_word) = _scheduled(array, listed, t - 14)
+    val (back16 | back16_word) = _scheduled(array, listed, t - 16)
+    val (xor1_high, xor1_low | x1_word) = $AR.word32_xor(back3_word, back8_word)
+    val (xor2_high, xor2_low | x2_word) = $AR.word32_xor(x1_word, back14_word)
+    val (xor3_high, xor3_low | x3_word) = $AR.word32_xor(x2_word, back16_word)
+    val (turned | word_value) = $AR.word32_rotr(x3_word, 31)
+    val (set | array) = word_set_w32(array, 4 * t, word_value)
     prval kept = schedule_array_frame(set, listed)
     prval specified = SCHEDULE_sha1(back3, back8, back14, back16, xor1_high, xor1_low, xor2_high, xor2_low, xor3_high, xor3_low, turned)
   in _schedule_sha1_expand(array, t + 1,
@@ -487,8 +597,8 @@ in _schedule_sha1_expand(array, 16, loaded) end
    4.1.1, 4.2.1, 5.3.1 and 6.1.2 steps 2 to 4 for SHA-1), proved against
    the standard (bats-lang/sha256#29, stage C)
 
-   The state of the rounds is eight words (SHA-1: five), each a word as its
-   two 16-bit halves. `word` is the sort of a word, w32(high, low), and
+   The state of the rounds is eight words (SHA-1: five), each an arith word32
+   whose two 16-bit halves are in its type. `word` is the sort of a word, w32(high, low), and
    `eight_words` and `five_words` those of the states, so a relation between
    states names every word of both, and the register shifts of a round are
    in the indices: the state after a round of SHA-256 is
@@ -528,6 +638,32 @@ in _schedule_sha1_expand(array, 16, loaded) end
 
 (* The 8 words of a state at `at`, read from the array; the proof says what
    they are, and the values returned are those the proof names *)
+#pub fun eight_get_w32 {lc:agz}{n,at:nat | at + 31 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536}
+  (cells: !$A.barr(lc, n, cs), at: int at,
+   have: EIGHT_AT(cs, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))))
+  : @($AR.word32(h0_high, h0_low), $AR.word32(h1_high, h1_low), $AR.word32(h2_high, h2_low), $AR.word32(h3_high, h3_low), $AR.word32(h4_high, h4_low), $AR.word32(h5_high, h5_low), $AR.word32(h6_high, h6_low), $AR.word32(h7_high, h7_low))
+
+implement eight_get_w32 {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low} (cells, at, have) = let
+  prval EIGHT_AT_mk(known0, known1, known2, known3, known4, known5, known6, known7) = have
+  val (read0 | read0_word) = word_get_w32(cells, at + 0)
+  prval () = word_at_functional(read0, known0)
+  val (read1 | read1_word) = word_get_w32(cells, at + 4)
+  prval () = word_at_functional(read1, known1)
+  val (read2 | read2_word) = word_get_w32(cells, at + 8)
+  prval () = word_at_functional(read2, known2)
+  val (read3 | read3_word) = word_get_w32(cells, at + 12)
+  prval () = word_at_functional(read3, known3)
+  val (read4 | read4_word) = word_get_w32(cells, at + 16)
+  prval () = word_at_functional(read4, known4)
+  val (read5 | read5_word) = word_get_w32(cells, at + 20)
+  prval () = word_at_functional(read5, known5)
+  val (read6 | read6_word) = word_get_w32(cells, at + 24)
+  prval () = word_at_functional(read6, known6)
+  val (read7 | read7_word) = word_get_w32(cells, at + 28)
+  prval () = word_at_functional(read7, known7)
+in @(read0_word, read1_word, read2_word, read3_word, read4_word, read5_word, read6_word, read7_word) end
+
+(* Deprecated (sha256#48): eight_get is kept as published, with the two 16-bit halves as ints; use eight_get_w32. It is removed in a later version, after one published version with both. *)
 #pub fun eight_get {lc:agz}{n,at:nat | at + 31 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536}
   (cells: !$A.barr(lc, n, cs), at: int at,
    have: EIGHT_AT(cs, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))))
@@ -554,6 +690,30 @@ implement eight_get {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,
 in @(read0_high, read0_low, read1_high, read1_low, read2_high, read2_low, read3_high, read3_low, read4_high, read4_low, read5_high, read5_low, read6_high, read6_low, read7_high, read7_low) end
 
 (* The 8 words written at `at`, with the proof that they are there *)
+#pub fun eight_set_w32 {lc:agz}{n,at:nat | at + 31 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536}
+  (cells: $A.barr(lc, n, cs), at: int at, h0_word: $AR.word32(h0_high, h0_low), h1_word: $AR.word32(h1_high, h1_low), h2_word: $AR.word32(h2_high, h2_low), h3_word: $AR.word32(h3_high, h3_low), h4_word: $AR.word32(h4_high, h4_low), h5_word: $AR.word32(h5_high, h5_low), h6_word: $AR.word32(h6_high, h6_low), h7_word: $AR.word32(h7_high, h7_low))
+  : [cs2:$A.cells] (EIGHT_AT(cs2, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))) | $A.barr(lc, n, cs2))
+
+implement eight_set_w32 {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low} (cells, at, h0_word, h1_word, h2_word, h3_word, h4_word, h5_word, h6_word, h7_word) = let
+  val (set0 | cells) = word_set_w32(cells, at + 0, h0_word)
+  val (set1 | cells) = word_set_w32(cells, at + 4, h1_word)
+  val (set2 | cells) = word_set_w32(cells, at + 8, h2_word)
+  val (set3 | cells) = word_set_w32(cells, at + 12, h3_word)
+  val (set4 | cells) = word_set_w32(cells, at + 16, h4_word)
+  val (set5 | cells) = word_set_w32(cells, at + 20, h5_word)
+  val (set6 | cells) = word_set_w32(cells, at + 24, h6_word)
+  val (set7 | cells) = word_set_w32(cells, at + 28, h7_word)
+  prval stored0 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_other(set1, word_set_at(set0))))))))
+  prval stored1 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_at(set1)))))))
+  prval stored2 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_other(set3, word_set_at(set2))))))
+  prval stored3 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_other(set4, word_set_at(set3)))))
+  prval stored4 = word_set_other(set7, word_set_other(set6, word_set_other(set5, word_set_at(set4))))
+  prval stored5 = word_set_other(set7, word_set_other(set6, word_set_at(set5)))
+  prval stored6 = word_set_other(set7, word_set_at(set6))
+  prval stored7 = word_set_at(set7)
+in (EIGHT_AT_mk(stored0, stored1, stored2, stored3, stored4, stored5, stored6, stored7) | cells) end
+
+(* Deprecated (sha256#48): eight_set is kept as published, with the two 16-bit halves as ints; use eight_set_w32. It is removed in a later version, after one published version with both. *)
 #pub fun eight_set {lc:agz}{n,at:nat | at + 31 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536}
   (cells: $A.barr(lc, n, cs), at: int at, h0_high: int h0_high, h0_low: int h0_low, h1_high: int h1_high, h1_low: int h1_low, h2_high: int h2_high, h2_low: int h2_low, h3_high: int h3_high, h3_low: int h3_low, h4_high: int h4_high, h4_low: int h4_low, h5_high: int h5_high, h5_low: int h5_low, h6_high: int h6_high, h6_low: int h6_low, h7_high: int h7_high, h7_low: int h7_low)
   : [cs2:$A.cells] (EIGHT_AT(cs2, at, eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low))) | $A.barr(lc, n, cs2))
@@ -579,6 +739,26 @@ in (EIGHT_AT_mk(stored0, stored1, stored2, stored3, stored4, stored5, stored6, s
 
 (* The 5 words of a state at `at`, read from the array; the proof says what
    they are, and the values returned are those the proof names *)
+#pub fun five_get_w32 {lc:agz}{n,at:nat | at + 19 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536}
+  (cells: !$A.barr(lc, n, cs), at: int at,
+   have: FIVE_AT(cs, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))))
+  : @($AR.word32(h0_high, h0_low), $AR.word32(h1_high, h1_low), $AR.word32(h2_high, h2_low), $AR.word32(h3_high, h3_low), $AR.word32(h4_high, h4_low))
+
+implement five_get_w32 {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low} (cells, at, have) = let
+  prval FIVE_AT_mk(known0, known1, known2, known3, known4) = have
+  val (read0 | read0_word) = word_get_w32(cells, at + 0)
+  prval () = word_at_functional(read0, known0)
+  val (read1 | read1_word) = word_get_w32(cells, at + 4)
+  prval () = word_at_functional(read1, known1)
+  val (read2 | read2_word) = word_get_w32(cells, at + 8)
+  prval () = word_at_functional(read2, known2)
+  val (read3 | read3_word) = word_get_w32(cells, at + 12)
+  prval () = word_at_functional(read3, known3)
+  val (read4 | read4_word) = word_get_w32(cells, at + 16)
+  prval () = word_at_functional(read4, known4)
+in @(read0_word, read1_word, read2_word, read3_word, read4_word) end
+
+(* Deprecated (sha256#48): five_get is kept as published, with the two 16-bit halves as ints; use five_get_w32. It is removed in a later version, after one published version with both. *)
 #pub fun five_get {lc:agz}{n,at:nat | at + 19 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536}
   (cells: !$A.barr(lc, n, cs), at: int at,
    have: FIVE_AT(cs, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))))
@@ -599,6 +779,24 @@ implement five_get {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h
 in @(read0_high, read0_low, read1_high, read1_low, read2_high, read2_low, read3_high, read3_low, read4_high, read4_low) end
 
 (* The 5 words written at `at`, with the proof that they are there *)
+#pub fun five_set_w32 {lc:agz}{n,at:nat | at + 19 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536}
+  (cells: $A.barr(lc, n, cs), at: int at, h0_word: $AR.word32(h0_high, h0_low), h1_word: $AR.word32(h1_high, h1_low), h2_word: $AR.word32(h2_high, h2_low), h3_word: $AR.word32(h3_high, h3_low), h4_word: $AR.word32(h4_high, h4_low))
+  : [cs2:$A.cells] (FIVE_AT(cs2, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))) | $A.barr(lc, n, cs2))
+
+implement five_set_w32 {lc}{n,at}{cs}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low} (cells, at, h0_word, h1_word, h2_word, h3_word, h4_word) = let
+  val (set0 | cells) = word_set_w32(cells, at + 0, h0_word)
+  val (set1 | cells) = word_set_w32(cells, at + 4, h1_word)
+  val (set2 | cells) = word_set_w32(cells, at + 8, h2_word)
+  val (set3 | cells) = word_set_w32(cells, at + 12, h3_word)
+  val (set4 | cells) = word_set_w32(cells, at + 16, h4_word)
+  prval stored0 = word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_other(set1, word_set_at(set0)))))
+  prval stored1 = word_set_other(set4, word_set_other(set3, word_set_other(set2, word_set_at(set1))))
+  prval stored2 = word_set_other(set4, word_set_other(set3, word_set_at(set2)))
+  prval stored3 = word_set_other(set4, word_set_at(set3))
+  prval stored4 = word_set_at(set4)
+in (FIVE_AT_mk(stored0, stored1, stored2, stored3, stored4) | cells) end
+
+(* Deprecated (sha256#48): five_set is kept as published, with the two 16-bit halves as ints; use five_set_w32. It is removed in a later version, after one published version with both. *)
 #pub fun five_set {lc:agz}{n,at:nat | at + 19 < n}{cs:$A.cells}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536}
   (cells: $A.barr(lc, n, cs), at: int at, h0_high: int h0_high, h0_low: int h0_low, h1_high: int h1_high, h1_low: int h1_low, h2_high: int h2_high, h2_low: int h2_low, h3_high: int h3_high, h3_low: int h3_low, h4_high: int h4_high, h4_low: int h4_low)
   : [cs2:$A.cells] (FIVE_AT(cs2, at, five(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low))) | $A.barr(lc, n, cs2))
@@ -693,6 +891,202 @@ in (FIVE_AT_mk(stored0, stored1, stored2, stored3, stored4) | cells) end
   | SHA256_K_63(63, 0xc671, 0x78f2)
 
 (* The constant of round t, with the proof that it is the table's *)
+#pub fun sha256_k_w32 {t:nat | t < 64} (t: int t)
+  : [high,low:nat | high < 65536; low < 65536] (SHA256_K(t, high, low) | $AR.word32(high, low))
+
+implement sha256_k_w32 {t} (t) =
+  if $AR.lt_g1(t, 32) then
+    if $AR.lt_g1(t, 16) then
+      if $AR.lt_g1(t, 8) then
+        if $AR.lt_g1(t, 4) then
+          if $AR.lt_g1(t, 2) then
+            if $AR.lt_g1(t, 1) then
+              (SHA256_K_0() | $AR.word32_pack(0x42, 0x8a, 0x2f, 0x98))
+            else
+              (SHA256_K_1() | $AR.word32_pack(0x71, 0x37, 0x44, 0x91))
+          else
+            if $AR.lt_g1(t, 3) then
+              (SHA256_K_2() | $AR.word32_pack(0xb5, 0xc0, 0xfb, 0xcf))
+            else
+              (SHA256_K_3() | $AR.word32_pack(0xe9, 0xb5, 0xdb, 0xa5))
+        else
+          if $AR.lt_g1(t, 6) then
+            if $AR.lt_g1(t, 5) then
+              (SHA256_K_4() | $AR.word32_pack(0x39, 0x56, 0xc2, 0x5b))
+            else
+              (SHA256_K_5() | $AR.word32_pack(0x59, 0xf1, 0x11, 0xf1))
+          else
+            if $AR.lt_g1(t, 7) then
+              (SHA256_K_6() | $AR.word32_pack(0x92, 0x3f, 0x82, 0xa4))
+            else
+              (SHA256_K_7() | $AR.word32_pack(0xab, 0x1c, 0x5e, 0xd5))
+      else
+        if $AR.lt_g1(t, 12) then
+          if $AR.lt_g1(t, 10) then
+            if $AR.lt_g1(t, 9) then
+              (SHA256_K_8() | $AR.word32_pack(0xd8, 0x07, 0xaa, 0x98))
+            else
+              (SHA256_K_9() | $AR.word32_pack(0x12, 0x83, 0x5b, 0x01))
+          else
+            if $AR.lt_g1(t, 11) then
+              (SHA256_K_10() | $AR.word32_pack(0x24, 0x31, 0x85, 0xbe))
+            else
+              (SHA256_K_11() | $AR.word32_pack(0x55, 0x0c, 0x7d, 0xc3))
+        else
+          if $AR.lt_g1(t, 14) then
+            if $AR.lt_g1(t, 13) then
+              (SHA256_K_12() | $AR.word32_pack(0x72, 0xbe, 0x5d, 0x74))
+            else
+              (SHA256_K_13() | $AR.word32_pack(0x80, 0xde, 0xb1, 0xfe))
+          else
+            if $AR.lt_g1(t, 15) then
+              (SHA256_K_14() | $AR.word32_pack(0x9b, 0xdc, 0x06, 0xa7))
+            else
+              (SHA256_K_15() | $AR.word32_pack(0xc1, 0x9b, 0xf1, 0x74))
+    else
+      if $AR.lt_g1(t, 24) then
+        if $AR.lt_g1(t, 20) then
+          if $AR.lt_g1(t, 18) then
+            if $AR.lt_g1(t, 17) then
+              (SHA256_K_16() | $AR.word32_pack(0xe4, 0x9b, 0x69, 0xc1))
+            else
+              (SHA256_K_17() | $AR.word32_pack(0xef, 0xbe, 0x47, 0x86))
+          else
+            if $AR.lt_g1(t, 19) then
+              (SHA256_K_18() | $AR.word32_pack(0x0f, 0xc1, 0x9d, 0xc6))
+            else
+              (SHA256_K_19() | $AR.word32_pack(0x24, 0x0c, 0xa1, 0xcc))
+        else
+          if $AR.lt_g1(t, 22) then
+            if $AR.lt_g1(t, 21) then
+              (SHA256_K_20() | $AR.word32_pack(0x2d, 0xe9, 0x2c, 0x6f))
+            else
+              (SHA256_K_21() | $AR.word32_pack(0x4a, 0x74, 0x84, 0xaa))
+          else
+            if $AR.lt_g1(t, 23) then
+              (SHA256_K_22() | $AR.word32_pack(0x5c, 0xb0, 0xa9, 0xdc))
+            else
+              (SHA256_K_23() | $AR.word32_pack(0x76, 0xf9, 0x88, 0xda))
+      else
+        if $AR.lt_g1(t, 28) then
+          if $AR.lt_g1(t, 26) then
+            if $AR.lt_g1(t, 25) then
+              (SHA256_K_24() | $AR.word32_pack(0x98, 0x3e, 0x51, 0x52))
+            else
+              (SHA256_K_25() | $AR.word32_pack(0xa8, 0x31, 0xc6, 0x6d))
+          else
+            if $AR.lt_g1(t, 27) then
+              (SHA256_K_26() | $AR.word32_pack(0xb0, 0x03, 0x27, 0xc8))
+            else
+              (SHA256_K_27() | $AR.word32_pack(0xbf, 0x59, 0x7f, 0xc7))
+        else
+          if $AR.lt_g1(t, 30) then
+            if $AR.lt_g1(t, 29) then
+              (SHA256_K_28() | $AR.word32_pack(0xc6, 0xe0, 0x0b, 0xf3))
+            else
+              (SHA256_K_29() | $AR.word32_pack(0xd5, 0xa7, 0x91, 0x47))
+          else
+            if $AR.lt_g1(t, 31) then
+              (SHA256_K_30() | $AR.word32_pack(0x06, 0xca, 0x63, 0x51))
+            else
+              (SHA256_K_31() | $AR.word32_pack(0x14, 0x29, 0x29, 0x67))
+  else
+    if $AR.lt_g1(t, 48) then
+      if $AR.lt_g1(t, 40) then
+        if $AR.lt_g1(t, 36) then
+          if $AR.lt_g1(t, 34) then
+            if $AR.lt_g1(t, 33) then
+              (SHA256_K_32() | $AR.word32_pack(0x27, 0xb7, 0x0a, 0x85))
+            else
+              (SHA256_K_33() | $AR.word32_pack(0x2e, 0x1b, 0x21, 0x38))
+          else
+            if $AR.lt_g1(t, 35) then
+              (SHA256_K_34() | $AR.word32_pack(0x4d, 0x2c, 0x6d, 0xfc))
+            else
+              (SHA256_K_35() | $AR.word32_pack(0x53, 0x38, 0x0d, 0x13))
+        else
+          if $AR.lt_g1(t, 38) then
+            if $AR.lt_g1(t, 37) then
+              (SHA256_K_36() | $AR.word32_pack(0x65, 0x0a, 0x73, 0x54))
+            else
+              (SHA256_K_37() | $AR.word32_pack(0x76, 0x6a, 0x0a, 0xbb))
+          else
+            if $AR.lt_g1(t, 39) then
+              (SHA256_K_38() | $AR.word32_pack(0x81, 0xc2, 0xc9, 0x2e))
+            else
+              (SHA256_K_39() | $AR.word32_pack(0x92, 0x72, 0x2c, 0x85))
+      else
+        if $AR.lt_g1(t, 44) then
+          if $AR.lt_g1(t, 42) then
+            if $AR.lt_g1(t, 41) then
+              (SHA256_K_40() | $AR.word32_pack(0xa2, 0xbf, 0xe8, 0xa1))
+            else
+              (SHA256_K_41() | $AR.word32_pack(0xa8, 0x1a, 0x66, 0x4b))
+          else
+            if $AR.lt_g1(t, 43) then
+              (SHA256_K_42() | $AR.word32_pack(0xc2, 0x4b, 0x8b, 0x70))
+            else
+              (SHA256_K_43() | $AR.word32_pack(0xc7, 0x6c, 0x51, 0xa3))
+        else
+          if $AR.lt_g1(t, 46) then
+            if $AR.lt_g1(t, 45) then
+              (SHA256_K_44() | $AR.word32_pack(0xd1, 0x92, 0xe8, 0x19))
+            else
+              (SHA256_K_45() | $AR.word32_pack(0xd6, 0x99, 0x06, 0x24))
+          else
+            if $AR.lt_g1(t, 47) then
+              (SHA256_K_46() | $AR.word32_pack(0xf4, 0x0e, 0x35, 0x85))
+            else
+              (SHA256_K_47() | $AR.word32_pack(0x10, 0x6a, 0xa0, 0x70))
+    else
+      if $AR.lt_g1(t, 56) then
+        if $AR.lt_g1(t, 52) then
+          if $AR.lt_g1(t, 50) then
+            if $AR.lt_g1(t, 49) then
+              (SHA256_K_48() | $AR.word32_pack(0x19, 0xa4, 0xc1, 0x16))
+            else
+              (SHA256_K_49() | $AR.word32_pack(0x1e, 0x37, 0x6c, 0x08))
+          else
+            if $AR.lt_g1(t, 51) then
+              (SHA256_K_50() | $AR.word32_pack(0x27, 0x48, 0x77, 0x4c))
+            else
+              (SHA256_K_51() | $AR.word32_pack(0x34, 0xb0, 0xbc, 0xb5))
+        else
+          if $AR.lt_g1(t, 54) then
+            if $AR.lt_g1(t, 53) then
+              (SHA256_K_52() | $AR.word32_pack(0x39, 0x1c, 0x0c, 0xb3))
+            else
+              (SHA256_K_53() | $AR.word32_pack(0x4e, 0xd8, 0xaa, 0x4a))
+          else
+            if $AR.lt_g1(t, 55) then
+              (SHA256_K_54() | $AR.word32_pack(0x5b, 0x9c, 0xca, 0x4f))
+            else
+              (SHA256_K_55() | $AR.word32_pack(0x68, 0x2e, 0x6f, 0xf3))
+      else
+        if $AR.lt_g1(t, 60) then
+          if $AR.lt_g1(t, 58) then
+            if $AR.lt_g1(t, 57) then
+              (SHA256_K_56() | $AR.word32_pack(0x74, 0x8f, 0x82, 0xee))
+            else
+              (SHA256_K_57() | $AR.word32_pack(0x78, 0xa5, 0x63, 0x6f))
+          else
+            if $AR.lt_g1(t, 59) then
+              (SHA256_K_58() | $AR.word32_pack(0x84, 0xc8, 0x78, 0x14))
+            else
+              (SHA256_K_59() | $AR.word32_pack(0x8c, 0xc7, 0x02, 0x08))
+        else
+          if $AR.lt_g1(t, 62) then
+            if $AR.lt_g1(t, 61) then
+              (SHA256_K_60() | $AR.word32_pack(0x90, 0xbe, 0xff, 0xfa))
+            else
+              (SHA256_K_61() | $AR.word32_pack(0xa4, 0x50, 0x6c, 0xeb))
+          else
+            if $AR.lt_g1(t, 63) then
+              (SHA256_K_62() | $AR.word32_pack(0xbe, 0xf9, 0xa3, 0xf7))
+            else
+              (SHA256_K_63() | $AR.word32_pack(0xc6, 0x71, 0x78, 0xf2))
+
+(* Deprecated (sha256#48): sha256_k is kept as published, with the two 16-bit halves as ints; use sha256_k_w32. It is removed in a later version, after one published version with both. *)
 #pub fun sha256_k {t:nat | t < 64} (t: int t)
   : [high,low:nat | high < 65536; low < 65536] (SHA256_K(t, high, low) | @(int high, int low))
 
@@ -912,6 +1306,27 @@ implement sha256_k {t} (t) =
       $AR.ADD32(d_high, d_low, t1_high, t1_low, new_e_high, new_e_low))
 
 (* One round, with the proof that its results are the standard's *)
+#pub fun sha256_round_w32 {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,f_high,f_low,g_high,g_low,h_high,h_low,k_high,k_low,w_high,w_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; f_high < 65536; f_low < 65536; g_high < 65536; g_low < 65536; h_high < 65536; h_low < 65536; k_high < 65536; k_low < 65536; w_high < 65536; w_low < 65536}
+  (a_word: $AR.word32(a_high, a_low), b_word: $AR.word32(b_high, b_low), c_word: $AR.word32(c_high, c_low), d_word: $AR.word32(d_high, d_low), e_word: $AR.word32(e_high, e_low), f_word: $AR.word32(f_high, f_low), g_word: $AR.word32(g_high, g_low), h_word: $AR.word32(h_high, h_low), k_word: $AR.word32(k_high, k_low), w_word: $AR.word32(w_high, w_low))
+  : [new_a_high,new_a_low,new_e_high,new_e_low:nat | new_a_high < 65536; new_a_low < 65536; new_e_high < 65536; new_e_low < 65536]
+    (SHA256_ROUND(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low), w32(h_high, h_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_e_high, new_e_low)) | @($AR.word32(new_a_high, new_a_low), $AR.word32(new_e_high, new_e_low)))
+
+implement sha256_round_w32 (a_word, b_word, c_word, d_word, e_word, f_word, g_word, h_word, k_word, w_word) = let
+  val (big1 | big1_word) = big_sigma_1_w32(e_word)
+  val (choice | ch_word) = word_ch_w32(e_word, f_word, g_word)
+  val (add1 | sum1_word) = $AR.word32_add(h_word, big1_word)
+  val (add2 | sum2_word) = $AR.word32_add(sum1_word, ch_word)
+  val (add3 | sum3_word) = $AR.word32_add(sum2_word, k_word)
+  val (add4 | t1_word) = $AR.word32_add(sum3_word, w_word)
+  val (big0 | big0_word) = big_sigma_0_w32(a_word)
+  val (majority | maj_word) = word_maj_w32(a_word, b_word, c_word)
+  val (add5 | t2_word) = $AR.word32_add(big0_word, maj_word)
+  val (add6 | new_a_word) = $AR.word32_add(t1_word, t2_word)
+  val (add7 | new_e_word) = $AR.word32_add(d_word, t1_word)
+in (SHA256_ROUND_mk(big1, choice, add1, add2, add3, add4, big0, majority, add5, add6, add7)
+    | @(new_a_word, new_e_word)) end
+
+(* Deprecated (sha256#48): sha256_round is kept as published, with the two 16-bit halves as ints; use sha256_round_w32. It is removed in a later version, after one published version with both. *)
 #pub fun sha256_round {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,f_high,f_low,g_high,g_low,h_high,h_low,k_high,k_low,w_high,w_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; f_high < 65536; f_low < 65536; g_high < 65536; g_low < 65536; h_high < 65536; h_low < 65536; k_high < 65536; k_low < 65536; w_high < 65536; w_low < 65536}
   (a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low, f_high: int f_high, f_low: int f_low, g_high: int g_high, g_low: int g_low, h_high: int h_high, h_low: int h_low, k_high: int k_high, k_low: int k_low, w_high: int w_high, w_low: int w_low)
   : [new_a_high,new_a_low,new_e_high,new_e_low:nat | new_a_high < 65536; new_a_low < 65536; new_e_high < 65536; new_e_low < 65536]
@@ -974,19 +1389,19 @@ in (SHA256_ROUND_mk(big1, choice, add1, add2, add3, add4, big0, majority, add5, 
 fun _rounds256 {lw:agz}{words,msg:$A.cells}{at:nat}{init:eight_words}{t:nat | t <= 64}
   {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,f_high,f_low,g_high,g_low,h_high,h_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; f_high < 65536; f_low < 65536; g_high < 65536; g_low < 65536; h_high < 65536; h_low < 65536} .<64 - t>.
   (schedule: !$A.barr(lw, 256, words), listed: SCHEDULE_ARRAY(sha256_kind(), words, msg, at, 64), t: int t,
-   a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low, f_high: int f_high, f_low: int f_low, g_high: int g_high, g_low: int g_low, h_high: int h_high, h_low: int h_low,
+   a_word: $AR.word32(a_high, a_low), b_word: $AR.word32(b_high, b_low), c_word: $AR.word32(c_high, c_low), d_word: $AR.word32(d_high, d_low), e_word: $AR.word32(e_high, e_low), f_word: $AR.word32(f_high, f_low), g_word: $AR.word32(g_high, g_low), h_word: $AR.word32(h_high, h_low),
    done: SHA256_ROUNDS(msg, at, t, init, eight(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(f_high, f_low), w32(g_high, g_low), w32(h_high, h_low))))
   : [end_a_high,end_a_low,end_b_high,end_b_low,end_c_high,end_c_low,end_d_high,end_d_low,end_e_high,end_e_low,end_f_high,end_f_low,end_g_high,end_g_low,end_h_high,end_h_low:nat | end_a_high < 65536; end_a_low < 65536; end_b_high < 65536; end_b_low < 65536; end_c_high < 65536; end_c_low < 65536; end_d_high < 65536; end_d_low < 65536; end_e_high < 65536; end_e_low < 65536; end_f_high < 65536; end_f_low < 65536; end_g_high < 65536; end_g_low < 65536; end_h_high < 65536; end_h_low < 65536]
-    (SHA256_ROUNDS(msg, at, 64, init, eight(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low), w32(end_f_high, end_f_low), w32(end_g_high, end_g_low), w32(end_h_high, end_h_low))) | @(int end_a_high, int end_a_low, int end_b_high, int end_b_low, int end_c_high, int end_c_low, int end_d_high, int end_d_low, int end_e_high, int end_e_low, int end_f_high, int end_f_low, int end_g_high, int end_g_low, int end_h_high, int end_h_low)) =
-  if t >= 64 then (done | @(a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, f_high, f_low, g_high, g_low, h_high, h_low))
+    (SHA256_ROUNDS(msg, at, 64, init, eight(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low), w32(end_f_high, end_f_low), w32(end_g_high, end_g_low), w32(end_h_high, end_h_low))) | @($AR.word32(end_a_high, end_a_low), $AR.word32(end_b_high, end_b_low), $AR.word32(end_c_high, end_c_low), $AR.word32(end_d_high, end_d_low), $AR.word32(end_e_high, end_e_low), $AR.word32(end_f_high, end_f_low), $AR.word32(end_g_high, end_g_low), $AR.word32(end_h_high, end_h_low))) =
+  if t >= 64 then (done | @(a_word, b_word, c_word, d_word, e_word, f_word, g_word, h_word))
   else let
-    val (constant | @(k_high, k_low)) = sha256_k(t)
-    val (word | @(w_high, w_low)) = _scheduled(schedule, listed, t)
-    val (step | @(new_a_high, new_a_low, new_e_high, new_e_low)) =
-      sha256_round(a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, f_high, f_low, g_high, g_low, h_high, h_low, k_high, k_low, w_high, w_low)
+    val (constant | k_word) = sha256_k_w32(t)
+    val (word | w_word) = _scheduled(schedule, listed, t)
+    val (step | @(new_a_word, new_e_word)) =
+      sha256_round_w32(a_word, b_word, c_word, d_word, e_word, f_word, g_word, h_word, k_word, w_word)
   in _rounds256(schedule, listed, t + 1,
-       new_a_high, new_a_low, a_high, a_low, b_high, b_low, c_high, c_low,
-       new_e_high, new_e_low, e_high, e_low, f_high, f_low, g_high, g_low,
+       new_a_word, a_word, b_word, c_word,
+       new_e_word, e_word, f_word, g_word,
        SHA256_ROUNDS_next(done, constant, word, step)) end
 
 (* The block of 64 bytes from `at` of the message hashed onto the chaining
@@ -1006,18 +1421,18 @@ fun _rounds256 {lw:agz}{words,msg:$A.cells}{at:nat}{init:eight_words}{t:nat | t 
 implement sha256_compress {lm}{nm}{msg}{at}{lw}{words}{lc}{chain}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low}
   (message, at, schedule, chaining, have) = let
   val (listed | schedule) = schedule_sha256(message, at, schedule)
-  val @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low) = eight_get(chaining, 0, have)
-  val (rounds | @(end_a_high, end_a_low, end_b_high, end_b_low, end_c_high, end_c_low, end_d_high, end_d_low, end_e_high, end_e_low, end_f_high, end_f_low, end_g_high, end_g_low, end_h_high, end_h_low)) = _rounds256(schedule, listed, 0,
-    h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low, SHA256_ROUNDS_zero())
-  val (add0 | @(next_h0_high, next_h0_low)) = $AR.add32(h0_high, h0_low, end_a_high, end_a_low)
-  val (add1 | @(next_h1_high, next_h1_low)) = $AR.add32(h1_high, h1_low, end_b_high, end_b_low)
-  val (add2 | @(next_h2_high, next_h2_low)) = $AR.add32(h2_high, h2_low, end_c_high, end_c_low)
-  val (add3 | @(next_h3_high, next_h3_low)) = $AR.add32(h3_high, h3_low, end_d_high, end_d_low)
-  val (add4 | @(next_h4_high, next_h4_low)) = $AR.add32(h4_high, h4_low, end_e_high, end_e_low)
-  val (add5 | @(next_h5_high, next_h5_low)) = $AR.add32(h5_high, h5_low, end_f_high, end_f_low)
-  val (add6 | @(next_h6_high, next_h6_low)) = $AR.add32(h6_high, h6_low, end_g_high, end_g_low)
-  val (add7 | @(next_h7_high, next_h7_low)) = $AR.add32(h7_high, h7_low, end_h_high, end_h_low)
-  val (written | chaining) = eight_set(chaining, 0, next_h0_high, next_h0_low, next_h1_high, next_h1_low, next_h2_high, next_h2_low, next_h3_high, next_h3_low, next_h4_high, next_h4_low, next_h5_high, next_h5_low, next_h6_high, next_h6_low, next_h7_high, next_h7_low)
+  val @(h0_word, h1_word, h2_word, h3_word, h4_word, h5_word, h6_word, h7_word) = eight_get_w32(chaining, 0, have)
+  val (rounds | @(end_a_word, end_b_word, end_c_word, end_d_word, end_e_word, end_f_word, end_g_word, end_h_word)) = _rounds256(schedule, listed, 0,
+    h0_word, h1_word, h2_word, h3_word, h4_word, h5_word, h6_word, h7_word, SHA256_ROUNDS_zero())
+  val (add0 | next_h0_word) = $AR.word32_add(h0_word, end_a_word)
+  val (add1 | next_h1_word) = $AR.word32_add(h1_word, end_b_word)
+  val (add2 | next_h2_word) = $AR.word32_add(h2_word, end_c_word)
+  val (add3 | next_h3_word) = $AR.word32_add(h3_word, end_d_word)
+  val (add4 | next_h4_word) = $AR.word32_add(h4_word, end_e_word)
+  val (add5 | next_h5_word) = $AR.word32_add(h5_word, end_f_word)
+  val (add6 | next_h6_word) = $AR.word32_add(h6_word, end_g_word)
+  val (add7 | next_h7_word) = $AR.word32_add(h7_word, end_h_word)
+  val (written | chaining) = eight_set_w32(chaining, 0, next_h0_word, next_h1_word, next_h2_word, next_h3_word, next_h4_word, next_h5_word, next_h6_word, next_h7_word)
 in (SHA256_BLOCK_mk(rounds, add0, add1, add2, add3, add4, add5, add6, add7), written | @(schedule, chaining)) end
 
 (* ============================================================
@@ -1044,6 +1459,16 @@ in (SHA256_BLOCK_mk(rounds, add0, add1, add2, add3, add4, add5, add6, add7), wri
     SHA1_F_parity_second(t, bh, bl, ch, cl, dh, dl, fh, fl) of PARITY(bh, bl, ch, cl, dh, dl, fh, fl)
 
 (* Parity of three words, with the proof that it is *)
+#pub fun word_parity_w32 {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
+  (x: $AR.word32(xh, xl), y: $AR.word32(yh, yl), z: $AR.word32(zh, zl))
+  : [rh,rl:nat | rh < 65536; rl < 65536] (PARITY(xh, xl, yh, yl, zh, zl, rh, rl) | $AR.word32(rh, rl))
+
+implement word_parity_w32 (x, y, z) = let
+  val (pah, pal | a) = $AR.word32_xor(x, y)
+  val (prh, prl | r) = $AR.word32_xor(a, z)
+in (PARITY_mk(pah, pal, prh, prl) | r) end
+
+(* Deprecated (sha256#48): word_parity is kept as published, with the two 16-bit halves as ints; use word_parity_w32. It is removed in a later version, after one published version with both. *)
 #pub fun word_parity {xh,xl,yh,yl,zh,zl:nat | xh < 65536; xl < 65536; yh < 65536; yl < 65536; zh < 65536; zl < 65536}
   (xh: int xh, xl: int xl, yh: int yh, yl: int yl, zh: int zh, zl: int zl)
   : [rh,rl:nat | rh < 65536; rl < 65536] (PARITY(xh, xl, yh, yl, zh, zl, rh, rl) | @(int rh, int rl))
@@ -1054,6 +1479,25 @@ implement word_parity (xh, xl, yh, yl, zh, zl) = let
 in (PARITY_mk(pah, pal, prh, prl) | @(rh, rl)) end
 
 (* f_t(b, c, d), with the proof that it is *)
+#pub fun sha1_f_w32 {t:nat | t < 80}{bh,bl,ch,cl,dh,dl:nat | bh < 65536; bl < 65536; ch < 65536; cl < 65536; dh < 65536; dl < 65536}
+  (t: int t, b: $AR.word32(bh, bl), c: $AR.word32(ch, cl), d: $AR.word32(dh, dl))
+  : [fh,fl:nat | fh < 65536; fl < 65536] (SHA1_F(t, bh, bl, ch, cl, dh, dl, fh, fl) | $AR.word32(fh, fl))
+
+implement sha1_f_w32 {t}{bh,bl,ch,cl,dh,dl} (t, b, c, d) =
+  if $AR.lt_g1(t, 20) then let
+    val (pf | f) = word_ch_w32(b, c, d)
+  in (SHA1_F_choose(pf) | f) end
+  else if $AR.lt_g1(t, 40) then let
+    val (pf | f) = word_parity_w32(b, c, d)
+  in (SHA1_F_parity_first(pf) | f) end
+  else if $AR.lt_g1(t, 60) then let
+    val (pf | f) = word_maj_w32(b, c, d)
+  in (SHA1_F_majority(pf) | f) end
+  else let
+    val (pf | f) = word_parity_w32(b, c, d)
+  in (SHA1_F_parity_second(pf) | f) end
+
+(* Deprecated (sha256#48): sha1_f is kept as published, with the two 16-bit halves as ints; use sha1_f_w32. It is removed in a later version, after one published version with both. *)
 #pub fun sha1_f {t:nat | t < 80}{bh,bl,ch,cl,dh,dl:nat | bh < 65536; bl < 65536; ch < 65536; cl < 65536; dh < 65536; dl < 65536}
   (t: int t, bh: int bh, bl: int bl, ch: int ch, cl: int cl, dh: int dh, dl: int dl)
   : [fh,fl:nat | fh < 65536; fl < 65536] (SHA1_F(t, bh, bl, ch, cl, dh, dl, fh, fl) | @(int fh, int fl))
@@ -1087,6 +1531,16 @@ implement sha1_f {t}{bh,bl,ch,cl,dh,dl} (t, bh, bl, ch, cl, dh, dl) =
   | {t:nat | 60 <= t; t <= 79} SHA1_K_60_to_79(t, 0xca62, 0xc1d6)
 
 (* The constant of round t, with the proof that it is the table's *)
+#pub fun sha1_k_w32 {t:nat | t < 80} (t: int t)
+  : [high,low:nat | high < 65536; low < 65536] (SHA1_K(t, high, low) | $AR.word32(high, low))
+
+implement sha1_k_w32 {t} (t) =
+  if $AR.lt_g1(t, 20) then (SHA1_K_0_to_19() | $AR.word32_pack(0x5a, 0x82, 0x79, 0x99))
+  else if $AR.lt_g1(t, 40) then (SHA1_K_20_to_39() | $AR.word32_pack(0x6e, 0xd9, 0xeb, 0xa1))
+  else if $AR.lt_g1(t, 60) then (SHA1_K_40_to_59() | $AR.word32_pack(0x8f, 0x1b, 0xbc, 0xdc))
+  else (SHA1_K_60_to_79() | $AR.word32_pack(0xca, 0x62, 0xc1, 0xd6))
+
+(* Deprecated (sha256#48): sha1_k is kept as published, with the two 16-bit halves as ints; use sha1_k_w32. It is removed in a later version, after one published version with both. *)
 #pub fun sha1_k {t:nat | t < 80} (t: int t)
   : [high,low:nat | high < 65536; low < 65536] (SHA1_K(t, high, low) | @(int high, int low))
 
@@ -1117,6 +1571,23 @@ implement sha1_k {t} (t) =
       $AR.ROTR(2, b_high, b_low, new_c_high, new_c_low))
 
 (* Round t, with the proof that its results are the standard's *)
+#pub fun sha1_round_w32 {t:nat | t < 80}{a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,k_high,k_low,w_high,w_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; k_high < 65536; k_low < 65536; w_high < 65536; w_low < 65536}
+  (t: int t, a_word: $AR.word32(a_high, a_low), b_word: $AR.word32(b_high, b_low), c_word: $AR.word32(c_high, c_low), d_word: $AR.word32(d_high, d_low), e_word: $AR.word32(e_high, e_low), k_word: $AR.word32(k_high, k_low), w_word: $AR.word32(w_high, w_low))
+  : [new_a_high,new_a_low,new_c_high,new_c_low:nat | new_a_high < 65536; new_a_low < 65536; new_c_high < 65536; new_c_low < 65536]
+    (SHA1_ROUND(t, w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low), w32(k_high, k_low), w32(w_high, w_low), w32(new_a_high, new_a_low), w32(new_c_high, new_c_low)) | @($AR.word32(new_a_high, new_a_low), $AR.word32(new_c_high, new_c_low)))
+
+implement sha1_round_w32 (t, a_word, b_word, c_word, d_word, e_word, k_word, w_word) = let
+  val (turn | turn5_word) = $AR.word32_rotr(a_word, 27)
+  val (function | f_word) = sha1_f_w32(t, b_word, c_word, d_word)
+  val (add1 | sum1_word) = $AR.word32_add(turn5_word, f_word)
+  val (add2 | sum2_word) = $AR.word32_add(sum1_word, e_word)
+  val (add3 | sum3_word) = $AR.word32_add(sum2_word, k_word)
+  val (add4 | new_a_word) = $AR.word32_add(sum3_word, w_word)
+  val (turn30 | new_c_word) = $AR.word32_rotr(b_word, 2)
+in (SHA1_ROUND_mk(turn, function, add1, add2, add3, add4, turn30)
+    | @(new_a_word, new_c_word)) end
+
+(* Deprecated (sha256#48): sha1_round is kept as published, with the two 16-bit halves as ints; use sha1_round_w32. It is removed in a later version, after one published version with both. *)
 #pub fun sha1_round {t:nat | t < 80}{a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low,k_high,k_low,w_high,w_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536; k_high < 65536; k_low < 65536; w_high < 65536; w_low < 65536}
   (t: int t, a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low, k_high: int k_high, k_low: int k_low, w_high: int w_high, w_low: int w_low)
   : [new_a_high,new_a_low,new_c_high,new_c_low:nat | new_a_high < 65536; new_a_low < 65536; new_c_high < 65536; new_c_low < 65536]
@@ -1168,18 +1639,18 @@ in (SHA1_ROUND_mk(turn, function, add1, add2, add3, add4, turn30)
 fun _rounds1 {lw:agz}{words,msg:$A.cells}{at:nat}{init:five_words}{t:nat | t <= 80}
   {a_high,a_low,b_high,b_low,c_high,c_low,d_high,d_low,e_high,e_low:nat | a_high < 65536; a_low < 65536; b_high < 65536; b_low < 65536; c_high < 65536; c_low < 65536; d_high < 65536; d_low < 65536; e_high < 65536; e_low < 65536} .<80 - t>.
   (schedule: !$A.barr(lw, 320, words), listed: SCHEDULE_ARRAY(sha1_kind(), words, msg, at, 80), t: int t,
-   a_high: int a_high, a_low: int a_low, b_high: int b_high, b_low: int b_low, c_high: int c_high, c_low: int c_low, d_high: int d_high, d_low: int d_low, e_high: int e_high, e_low: int e_low,
+   a_word: $AR.word32(a_high, a_low), b_word: $AR.word32(b_high, b_low), c_word: $AR.word32(c_high, c_low), d_word: $AR.word32(d_high, d_low), e_word: $AR.word32(e_high, e_low),
    done: SHA1_ROUNDS(msg, at, t, init, five(w32(a_high, a_low), w32(b_high, b_low), w32(c_high, c_low), w32(d_high, d_low), w32(e_high, e_low))))
   : [end_a_high,end_a_low,end_b_high,end_b_low,end_c_high,end_c_low,end_d_high,end_d_low,end_e_high,end_e_low:nat | end_a_high < 65536; end_a_low < 65536; end_b_high < 65536; end_b_low < 65536; end_c_high < 65536; end_c_low < 65536; end_d_high < 65536; end_d_low < 65536; end_e_high < 65536; end_e_low < 65536]
-    (SHA1_ROUNDS(msg, at, 80, init, five(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low))) | @(int end_a_high, int end_a_low, int end_b_high, int end_b_low, int end_c_high, int end_c_low, int end_d_high, int end_d_low, int end_e_high, int end_e_low)) =
-  if t >= 80 then (done | @(a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low))
+    (SHA1_ROUNDS(msg, at, 80, init, five(w32(end_a_high, end_a_low), w32(end_b_high, end_b_low), w32(end_c_high, end_c_low), w32(end_d_high, end_d_low), w32(end_e_high, end_e_low))) | @($AR.word32(end_a_high, end_a_low), $AR.word32(end_b_high, end_b_low), $AR.word32(end_c_high, end_c_low), $AR.word32(end_d_high, end_d_low), $AR.word32(end_e_high, end_e_low))) =
+  if t >= 80 then (done | @(a_word, b_word, c_word, d_word, e_word))
   else let
-    val (constant | @(k_high, k_low)) = sha1_k(t)
-    val (word | @(w_high, w_low)) = _scheduled(schedule, listed, t)
-    val (step | @(new_a_high, new_a_low, new_c_high, new_c_low)) =
-      sha1_round(t, a_high, a_low, b_high, b_low, c_high, c_low, d_high, d_low, e_high, e_low, k_high, k_low, w_high, w_low)
+    val (constant | k_word) = sha1_k_w32(t)
+    val (word | w_word) = _scheduled(schedule, listed, t)
+    val (step | @(new_a_word, new_c_word)) =
+      sha1_round_w32(t, a_word, b_word, c_word, d_word, e_word, k_word, w_word)
   in _rounds1(schedule, listed, t + 1,
-       new_a_high, new_a_low, a_high, a_low, new_c_high, new_c_low, c_high, c_low, d_high, d_low,
+       new_a_word, a_word, new_c_word, c_word, d_word,
        SHA1_ROUNDS_next(done, constant, word, step)) end
 
 (* The block of 64 bytes from `at` of the message hashed onto the chaining
@@ -1198,15 +1669,15 @@ fun _rounds1 {lw:agz}{words,msg:$A.cells}{at:nat}{init:five_words}{t:nat | t <= 
 implement sha1_compress {lm}{nm}{msg}{at}{lw}{words}{lc}{chain}{h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low}
   (message, at, schedule, chaining, have) = let
   val (listed | schedule) = schedule_sha1(message, at, schedule)
-  val @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low) = five_get(chaining, 0, have)
-  val (rounds | @(end_a_high, end_a_low, end_b_high, end_b_low, end_c_high, end_c_low, end_d_high, end_d_low, end_e_high, end_e_low)) = _rounds1(schedule, listed, 0,
-    h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, SHA1_ROUNDS_zero())
-  val (add0 | @(next_h0_high, next_h0_low)) = $AR.add32(h0_high, h0_low, end_a_high, end_a_low)
-  val (add1 | @(next_h1_high, next_h1_low)) = $AR.add32(h1_high, h1_low, end_b_high, end_b_low)
-  val (add2 | @(next_h2_high, next_h2_low)) = $AR.add32(h2_high, h2_low, end_c_high, end_c_low)
-  val (add3 | @(next_h3_high, next_h3_low)) = $AR.add32(h3_high, h3_low, end_d_high, end_d_low)
-  val (add4 | @(next_h4_high, next_h4_low)) = $AR.add32(h4_high, h4_low, end_e_high, end_e_low)
-  val (written | chaining) = five_set(chaining, 0, next_h0_high, next_h0_low, next_h1_high, next_h1_low, next_h2_high, next_h2_low, next_h3_high, next_h3_low, next_h4_high, next_h4_low)
+  val @(h0_word, h1_word, h2_word, h3_word, h4_word) = five_get_w32(chaining, 0, have)
+  val (rounds | @(end_a_word, end_b_word, end_c_word, end_d_word, end_e_word)) = _rounds1(schedule, listed, 0,
+    h0_word, h1_word, h2_word, h3_word, h4_word, SHA1_ROUNDS_zero())
+  val (add0 | next_h0_word) = $AR.word32_add(h0_word, end_a_word)
+  val (add1 | next_h1_word) = $AR.word32_add(h1_word, end_b_word)
+  val (add2 | next_h2_word) = $AR.word32_add(h2_word, end_c_word)
+  val (add3 | next_h3_word) = $AR.word32_add(h3_word, end_d_word)
+  val (add4 | next_h4_word) = $AR.word32_add(h4_word, end_e_word)
+  val (written | chaining) = five_set_w32(chaining, 0, next_h0_word, next_h1_word, next_h2_word, next_h3_word, next_h4_word)
 in (SHA1_BLOCK_mk(rounds, add0, add1, add2, add3, add4), written | @(schedule, chaining)) end
 
 (* ============================================================
@@ -1517,6 +1988,14 @@ in (held2, PAD_mk(counted, ZCOUNT_long(), lengths, snoc128, more, written) | blo
 
 (* The initial value, with the proof that it is the table's. The words are in
    the type, so the values returned are the ones the proof states. *)
+#pub fun sha256_iv_w32 ()
+  : (SHA256_IV(eight(w32(0x6a09, 0xe667), w32(0xbb67, 0xae85), w32(0x3c6e, 0xf372), w32(0xa54f, 0xf53a),
+                     w32(0x510e, 0x527f), w32(0x9b05, 0x688c), w32(0x1f83, 0xd9ab), w32(0x5be0, 0xcd19)))  |
+     @($AR.word32(0x6a09, 0xe667), $AR.word32(0xbb67, 0xae85), $AR.word32(0x3c6e, 0xf372), $AR.word32(0xa54f, 0xf53a), $AR.word32(0x510e, 0x527f), $AR.word32(0x9b05, 0x688c), $AR.word32(0x1f83, 0xd9ab), $AR.word32(0x5be0, 0xcd19)))
+
+implement sha256_iv_w32 () = (SHA256_IV_mk() | @($AR.word32_pack(0x6a, 0x09, 0xe6, 0x67), $AR.word32_pack(0xbb, 0x67, 0xae, 0x85), $AR.word32_pack(0x3c, 0x6e, 0xf3, 0x72), $AR.word32_pack(0xa5, 0x4f, 0xf5, 0x3a), $AR.word32_pack(0x51, 0x0e, 0x52, 0x7f), $AR.word32_pack(0x9b, 0x05, 0x68, 0x8c), $AR.word32_pack(0x1f, 0x83, 0xd9, 0xab), $AR.word32_pack(0x5b, 0xe0, 0xcd, 0x19)))
+
+(* Deprecated (sha256#48): sha256_iv is kept as published, with the two 16-bit halves as ints; use sha256_iv_w32. It is removed in a later version, after one published version with both. *)
 #pub fun sha256_iv ()
   : (SHA256_IV(eight(w32(0x6a09, 0xe667), w32(0xbb67, 0xae85), w32(0x3c6e, 0xf372), w32(0xa54f, 0xf53a),
                      w32(0x510e, 0x527f), w32(0x9b05, 0x688c), w32(0x1f83, 0xd9ab), w32(0x5be0, 0xcd19))) |
@@ -1526,6 +2005,13 @@ in (held2, PAD_mk(counted, ZCOUNT_long(), lengths, snoc128, more, written) | blo
 implement sha256_iv () = (SHA256_IV_mk() | @(0x6a09, 0xe667, 0xbb67, 0xae85, 0x3c6e, 0xf372, 0xa54f, 0xf53a,
                                               0x510e, 0x527f, 0x9b05, 0x688c, 0x1f83, 0xd9ab, 0x5be0, 0xcd19))
 
+#pub fun sha1_iv_w32 ()
+  : (SHA1_IV(five(w32(0x6745, 0x2301), w32(0xefcd, 0xab89), w32(0x98ba, 0xdcfe), w32(0x1032, 0x5476), w32(0xc3d2, 0xe1f0)))  |
+     @($AR.word32(0x6745, 0x2301), $AR.word32(0xefcd, 0xab89), $AR.word32(0x98ba, 0xdcfe), $AR.word32(0x1032, 0x5476), $AR.word32(0xc3d2, 0xe1f0)))
+
+implement sha1_iv_w32 () = (SHA1_IV_mk() | @($AR.word32_pack(0x67, 0x45, 0x23, 0x01), $AR.word32_pack(0xef, 0xcd, 0xab, 0x89), $AR.word32_pack(0x98, 0xba, 0xdc, 0xfe), $AR.word32_pack(0x10, 0x32, 0x54, 0x76), $AR.word32_pack(0xc3, 0xd2, 0xe1, 0xf0)))
+
+(* Deprecated (sha256#48): sha1_iv is kept as published, with the two 16-bit halves as ints; use sha1_iv_w32. It is removed in a later version, after one published version with both. *)
 #pub fun sha1_iv ()
   : (SHA1_IV(five(w32(0x6745, 0x2301), w32(0xefcd, 0xab89), w32(0x98ba, 0xdcfe), w32(0x1032, 0x5476), w32(0xc3d2, 0xe1f0))) |
      @(int(0x6745), int(0x2301), int(0xefcd), int(0xab89), int(0x98ba), int(0xdcfe), int(0x1032), int(0x5476), int(0xc3d2), int(0xe1f0)))
@@ -1611,9 +2097,9 @@ fn _init256 ()
   val (_ | chain_array) = $A.barr_alloc(32)
   val (_ | schedule_array) = $A.barr_alloc(256)
   val (_ | block_array) = $A.barr_alloc(64)
-  val (initial | @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low)) = sha256_iv()
-  val (have | chain_array) = eight_set(chain_array, 0, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low,
-                                       h4_high, h4_low, h5_high, h5_low, h6_high, h6_low, h7_high, h7_low)
+  val (initial | @(h0_word, h1_word, h2_word, h3_word, h4_word, h5_word, h6_word, h7_word)) = sha256_iv_w32()
+  val (have | chain_array) = eight_set_w32(chain_array, 0, h0_word, h1_word, h2_word, h3_word,
+                                       h4_word, h5_word, h6_word, h7_word)
 in (HASHED256_start(initial), have, HELD_zero(), empty_is_a_list(), COUNTED_nil() | @(chain_array, schedule_array, block_array)) end
 
 (* A hash of the empty message: the context of everything fed to it so far,
@@ -1877,9 +2363,9 @@ fn _finish1 {chain_loc,schedule_loc,block_loc,out_loc:agz}{chain_cells,schedule_
     prval FIVE_AT_mk(word0, word1, word2, word3, word4) = have
     prval opened = FIVE_AT_mk(word0, word1, word2, word3, word4)
     prval () = five_at_bound(opened)
-    val @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low) = five_get(chain_array, 0, opened)
+    val @(h0_word, h1_word, h2_word, h3_word, h4_word) = five_get_w32(chain_array, 0, opened)
     val () = $A.barr_free(chain_array)
-  in five_set(out, 0, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low) end
+  in five_set_w32(out, 0, h0_word, h1_word, h2_word, h3_word, h4_word) end
 in
   if fill <= 55 then let
     val (held, pad | block_array) = pad_short(block_array, count_top, count_high, count_blocks, fill, block_held, list, counted)
@@ -1906,8 +2392,8 @@ fn _init1 ()
   val (_ | chain_array) = $A.barr_alloc(20)
   val (_ | schedule_array) = $A.barr_alloc(320)
   val (_ | block_array) = $A.barr_alloc(64)
-  val (initial | @(h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low)) = sha1_iv()
-  val (have | chain_array) = five_set(chain_array, 0, h0_high, h0_low, h1_high, h1_low, h2_high, h2_low, h3_high, h3_low, h4_high, h4_low)
+  val (initial | @(h0_word, h1_word, h2_word, h3_word, h4_word)) = sha1_iv_w32()
+  val (have | chain_array) = five_set_w32(chain_array, 0, h0_word, h1_word, h2_word, h3_word, h4_word)
 in (HASHED1_start(initial), have, HELD_zero(), empty_is_a_list(), COUNTED_nil() | @(chain_array, schedule_array, block_array)) end
 
 fun _small1 {chain_loc,schedule_loc,block_loc,data_loc,out_loc:agz}{n:nat}{data_cells,message_before,out_cells:$A.cells}{length:nat | length <= n; length <= 65535}{i:nat | i <= length}
@@ -2392,7 +2878,7 @@ fun _pour1 {ld,lb:agz}{nd:pos}{message,cs:$A.cells}{length:nat | length <= nd}{i
 
 (* The proved incremental SHA-256: proved_init, proved_update with each piece
    of the input in order, then proved_finish; the same as init, update and
-   finish but the proved code, and about 30 times slower. It holds a ctx256
+   finish but the proved code, and about 8 times slower. It holds a ctx256
    of some message. *)
 #pub datavtype proved_ctx =
   | {message:$A.cells} proved_ctx_mk of (ctx256(message))

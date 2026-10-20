@@ -1,0 +1,8 @@
+[package]
+name = "word-get-w32-halves-swapped"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""

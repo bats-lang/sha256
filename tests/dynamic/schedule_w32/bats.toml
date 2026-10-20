@@ -1,0 +1,8 @@
+[package]
+name = "schedule_w32"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""
