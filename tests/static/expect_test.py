@@ -53,6 +53,17 @@ class Expect(unittest.TestCase):
         want = GOOD.replace('S2Eintinf(1); S2Eintinf(0)', 'S2Evar(l$1(2)); S2Evar(l$3(4))')
         self.assertIsNone(self.run_case(want, log))
 
+    def test_existential_numbers_are_not_compared(self):
+        # patsopt numbers the variables an existential binds (S2Eexi(c(14593)))
+        log = LOG.replace('S2Eeqeq(S2Eintinf(1); S2Eintinf(0))', 'S2Eexi(c(14593); ; S2Eeqeq(S2Eintinf(1); S2Eintinf(0)))')
+        want = GOOD.replace('S2Eeqeq(S2Eintinf(1); S2Eintinf(0))', 'S2Eexi(c(14465); ; S2Eeqeq(S2Eintinf(1); S2Eintinf(0)))')
+        self.assertIsNone(self.run_case(want, log))
+
+    def test_existential_name_is_compared(self):
+        log = LOG.replace('S2Eeqeq(S2Eintinf(1); S2Eintinf(0))', 'S2Eexi(c(14593); ; S2Eeqeq(S2Eintinf(1); S2Eintinf(0)))')
+        want = GOOD.replace('S2Eeqeq(S2Eintinf(1); S2Eintinf(0))', 'S2Eexi(d(14465); ; S2Eeqeq(S2Eintinf(1); S2Eintinf(0)))')
+        self.assertIn('not the one expected', self.run_case(want, log))
+
     def test_no_expect(self):
         self.assertEqual(self.run_case(None, LOG), 'it has no expect')
 

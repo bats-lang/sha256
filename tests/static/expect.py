@@ -67,6 +67,9 @@ NUMBERS = [
     # a static variable: S2Evar(count(11804)); a constant, S2Eintinf(2),
     # keeps its number
     (re.compile(r'S2Evar\(([A-Za-z_][A-Za-z0-9_]*)\(\d+\)\)'), r'S2Evar(\1(_))'),
+    # a static variable an existential binds: S2Eexi(out_cells_after(14593); ;
+    # S2Eexi(chaining(14594); ...); its name is kept and compared
+    (re.compile(r'S2Eexi\(([A-Za-z_][A-Za-z0-9_]*)\(\d+\)'), r'S2Eexi(\1(_)'),
 ]
 
 
