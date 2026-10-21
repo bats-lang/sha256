@@ -276,9 +276,11 @@ its choice by name:
   build. Tested, not proved (`tests/dynamic/vectors`, `sizes`, `proved`).
 * **`proved_hash`, `proved_init`, `proved_update`, `proved_finish`** (and
   `proved_ctx`): the same types, running the proved code (stages A to D) through
-  `init256_proved`, `update256_proved`, `finish256_proved`. About 7.5 times slower
-  than `hash` (452 instructions a byte before sha256#53, 394 after; `hash` 52),
-  so nothing switches to it until it is fast enough (#34). A message
+  `init256_proved`, `update256_proved`, `finish256_proved`. Before sha256#59 about 7.5
+  times slower than `hash` (393.9 instructions a byte against 52.4, 38.71 ms a MiB
+  against 3.29, `tests/bench`, release, the raw output is on PR #60); since it
+  94.0 against 52.4 (1.79 times) and 5.89 ms against 3.39 (section "within 2x", below).
+  Nothing switches to it until it is fast enough (#34). A message
   that reaches its largest length (about 2^45 bytes) takes no more bytes.
 * **`sha1_digest`**: the proved SHA-1 (`init1_proved`, `update1_proved`,
   `finish1_proved` over the same `HELD`, `COUNTED` and padding proofs). SHA-1 had
@@ -310,10 +312,11 @@ against `ROTR`; the single-bit `rotr` takes 31 steps).
   pieces of any total size: a message is not limited to the 2^16 bytes the
   one-shot `sha256_digest_proved` and `sha1_digest_proved` take (those stay,
   proved, and the array functions do not use them: one code path).
-* **Measured** (release build, 1 MiB, 4 cores, `/tmp/bench`-style loop of 40 and 10
-  hashes; the main branch's `hash` and this branch's `hash` measured the same way):
-  `hash` 5.9 ms (about 175 MB/s) on main and 5.9 to 6.9 ms here (nothing slowed);
-  `proved_hash` 211 to 239 ms (4.4 to 5.0 MB/s); `sha1_digest` 108 to 138 ms
+* **Measured** (release build, 1 MiB; `hash` and `proved_hash` by `tests/bench`, least
+  of 5 runs of 20 hashes, figures in the section "within 2x" below: `hash` 3.29 ms
+  a MiB, `proved_hash` 38.71 ms before sha256#59 and 5.89 ms after; `sha1_digest` and
+  the debug figures from an earlier `/tmp/bench`-style loop of 40 and 10 hashes on
+  another machine state, not measured again): `sha1_digest` 108 to 138 ms
   (7.6 to 9.7 MB/s). In a debug build `hash` took 296 ms and `proved_hash` 2790 ms.
   `tests/dynamic/perf` fails a debug build over 1.5 s for `hash` (so `hash` running
   the proved code by mistake fails it), over 6 s for `proved_hash` and over 3 s for
@@ -439,9 +442,89 @@ build's, not this code's (compiling the dependencies of a debug build with
 `-O1`, or the operations as `always_inline`, is bats').
 
 **The proved SHA-256 was not made faster by this** (`proved_hash`: about 7.5
-times slower than the fast code, #34). It is not what bats and quire call. The
+times slower than the fast code then, #34; sha256#59, below, made it 1.79 times).
+It is not what bats and quire call. The
 `_w32` words (sha256#52) and the `barr_get_be32` read (sha256#53) took it from
 452 to 394 instructions a byte (callgrind, release, 1 MiB; the fast `hash`
 about 52): the rest is the proof's own work, and the way to its speed is
 #34's last comment, not these changes.
 
+## The proved SHA-256 within 2x of the fast one (bats-lang/sha256#59)
+
+**Measured.** `tests/bench/run.sh <repository> release` (native, 1 MiB; the time is
+the least of 5 runs of 20 hashes, the instructions a byte are callgrind's
+(3 MiB - 1 MiB) / 2 MiB), run on main (c09d33c) and on this branch with the same
+compiler (bats dbb8914 release, from its bootstrap/c), the same GMP ATS2, the same
+scratch copy of the pinned repository (d256b6e) and one machine state, one after the
+other. The raw output of both runs is in the comment on PR #60 that names the head
+that was measured. This is the one place the figures are stated:
+
+| | instructions a byte | ms a MiB |
+|---|---|---|
+| `proved_hash`, main (before) | 393.9 | 38.71 |
+| `proved_hash`, this branch (after) | **94.0** | **5.89** |
+| `hash` (main) / `hash` (this branch) | 52.4 / 52.4 | 3.29 / 3.39 |
+| incremental API (main) / (this branch) | 52.4 / 52.4 | 3.26 / 3.42 |
+
+The proved code is 7.5 times `hash` in instructions before and **1.79** after (94.0 /
+52.4), 11.8 times in time before and 1.74 after (5.89 / 3.39): within the 2x of the
+ticket. The digest of the bench is `8816f31b...` in all four runs of `hash` and `proved`
+(the incremental API's is `99c35f42...` in both). The earlier sections' figures for `proved_hash` (7.5 times, 452 and
+394 instructions a byte, 211 to 239 ms) are the code before this change, and the 211
+to 239 ms are replaced by the 38.71 ms above (same code, measured by `tests/bench`).
+
+What it was: the proved code's words were one `uint` already (the `word32` of
+sha256#52), and its cost was calls.
+Each `#pub fun` of arith and array is an external symbol compiled alone at `-O2`,
+so `barr_get_be32`, `barr_set`, `word32_pack`, `word32_rotr` and `word32_byte`
+(175.8 of 394.0 instructions a byte, #55's profile) were calls. What is done:
+
+1. **The five as templates.** arith's `word32_rotr_inline`, `word32_pack_inline`,
+   `word32_byte_inline` and array's `barr_get_inline`, `barr_get_be32_inline`,
+   `barr_set_inline` are `#pub fun{}` templates with the types and bodies of the
+   old names: a dependent instantiates them in its own translation unit (it loads
+   the package's `lib.dats`), so the C compiler inlines them. This package calls
+   them everywhere (the old names are not called here any more; they stay in
+   arith and array). Nothing new is trusted (arith's and array's CLAUDE.md), no
+   `$UNSAFE` is added here, the package is `unsafe = false`.
+2. **The round constants as a chain of equalities** (`sha256_k_w32`). It was a
+   binary search of six comparisons for each round (about 15 instructions a byte, a
+   call that was not inlined, from the profile of the earlier work on this change);
+   `if t = 0 ... else if t = 1 ...` with `$AR.eq_g1` is the same function with
+   the same proof of `SHA256_K(t, ...)` in each leaf, and about 6 instructions a byte.
+   The last leaf (t = 63) is proved by the solver from the signature's `0 <= t` and
+   `t < 64` and the 63 disequalities `t != 0` to `t != 62` that the 63 false
+   branches of the chain give.
+
+The steps' own figures (277.5 after arith's templates, 113.0 after array's, 103.0 with
+`word32_pack_inline` in the constants) and the by-function profile below (58, 28)
+are from the earlier work on this change; only the before and after are in the posted
+raw output.
+
+What is left (94.0): `sha256_compress` 58 a byte (the rounds, the sigmas, the
+reads of the schedule words), `schedule_sha256` 28 (the 48 expanded words, about
+37 instructions each: the word written by the previous step is read back from the
+array byte by byte, which the C compiler does not forward), and the bench's own
+fill. Reaching the fast code's 52 needs the schedule out of the array (the
+proofs follow the array's cells, `SCHEDULE_ARRAY`) or unrolled rounds; not done.
+
+**Override exposure (the review of PR #60; arith's and array's CLAUDE.md, same
+section name).** Before this change the six functions were external symbols, and a
+second definition of one was a link error. A template body is compiled into each
+translation unit that instantiates it, so a package in this package's dependency
+graph that implements the same template (`implement{} $AR.word32_rotr_inline ...`,
+which needs an unsafe package, since it casts) replaces the body at this package's
+call sites, silently, and sha256 (`unsafe = false`) would run it: the proved code's
+six template call sites (`word32_rotr_inline`, `word32_pack_inline`,
+`word32_byte_inline`, `barr_get_inline`, `barr_get_be32_inline`, `barr_set_inline`)
+are exposed, though the types still hold (the replacement has the same type, and
+the proofs are about the type). Nothing in this package's build detects it today.
+The tracker is bats-lang/bats#421 (open): reject an `implement` of a template or
+function that another package declares. Until it lands the exposure is
+the one arith's and array's CLAUDE.md state for their templates; this package adds no override and its lock names only arith and
+array.
+
+Proved, tested, trusted: unchanged. Every proof is the same term (the
+templates have the types of the functions they replace), checked by the gmp
+solver; `tests/dynamic` (15 tests, `proved` and `sizes` included) and
+`tests/static` (105 fixtures) pass.
