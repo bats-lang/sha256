@@ -109,12 +109,16 @@ fn child_sha1 (): void = let
   val () = $A.free<byte>($A.thaw<byte>(frozen))
 in end
 
-implement main0 () = let
+(* the process's arguments, kept for perf_self and perf_mode *)
+fn keep_args (): void = let
   val args = $A.alloc<byte>(4096)
   val () = case+ $E.args_read(args, 4096) of
     | ~$R.some(length) => perf_set_args(args, length)
     | ~$R.none() => ()
-  val () = $A.free<byte>(args)
+in $A.free<byte>(args) end
+
+implement main0 () = let
+  val () = keep_args()
   val mode = perf_mode()
 in
   if mode = 1 then child_fast()
