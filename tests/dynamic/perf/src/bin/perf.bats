@@ -110,11 +110,14 @@ fn child_sha1 (): void = let
 in end
 
 (* the process's arguments, kept for perf_self and perf_mode *)
+fn read_args {l:agz} (args: !$A.arr(byte, l, 4096)): void =
+  case+ $E.args_read(args, 4096) of
+  | ~$R.some(length) => perf_set_args(args, length)
+  | ~$R.none() => ()
+
 fn keep_args (): void = let
   val args = $A.alloc<byte>(4096)
-  val () = case+ $E.args_read(args, 4096) of
-    | ~$R.some(length) => perf_set_args(args, length)
-    | ~$R.none() => ()
+  val () = read_args(args)
 in $A.free<byte>(args) end
 
 implement main0 () = let
