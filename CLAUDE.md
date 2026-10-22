@@ -318,9 +318,7 @@ against `ROTR`; the single-bit `rotr` takes 31 steps).
   the debug figures from an earlier `/tmp/bench`-style loop of 40 and 10 hashes on
   another machine state, not measured again): `sha1_digest` 108 to 138 ms
   (7.6 to 9.7 MB/s). In a debug build `hash` took 296 ms and `proved_hash` 2790 ms.
-  `tests/dynamic/perf` fails a debug build over 1.5 s for `hash` (so `hash` running
-  the proved code by mistake fails it), over 6 s for `proved_hash` and over 3 s for
-  `sha1_digest` (the single-bit rotations would take 9.4 and 4.8 s).
+  `tests/dynamic/perf` decides by instruction counts, not time (below, sha256#65).
 
 **What is proved, tested and trusted.** Proved (by the compiler, no `praxi`, no
 `assume`, no `$UNSAFE`): the word functions, the schedules, the rounds and the
@@ -528,3 +526,48 @@ Proved, tested, trusted: unchanged. Every proof is the same term (the
 templates have the types of the functions they replace), checked by the gmp
 solver; `tests/dynamic` (15 tests, `proved` and `sizes` included) and
 `tests/static` (105 fixtures) pass.
+
+## The perf test counts instructions (bats-lang/sha256#65)
+
+`tests/dynamic/perf` read the clock around three hashes and failed over fixed
+times (1.5, 6 and 3 s), which a loaded runner can exceed with correct code: a
+red that says nothing about the code, and a retry is no fix. What it guards is
+not a time: `hash` must not run the proved code, and the proved code must not
+rotate a bit at a time (a million operations a block). Both are how many
+instructions run, which `valgrind --tool=callgrind` counts exactly and load
+does not change. So the test runs itself three times under callgrind (one hash
+of 1 MiB each, `popen`, the child chosen by its argument), reads the line
+`Collected : N` of valgrind's summary, and compares N in millions with a
+budget. It reads no clock, runs each hash once, and fails when valgrind gives
+no count. Its C (a few lines in an `unsafe = true` test, as before) is
+`popen` and `atoll`: the process package would need an argument array and
+a pipe for the same, and the budgets themselves are in Bats.
+
+**Counted** (debug build, as `run.sh` builds it, GMP ATS2, the whole child
+including the 1 MiB fill and the allocations, so about 200 million are not the
+hash): `hash` 1097 million, `proved_hash` 6325 million, `sha1_digest` 6133
+million.
+
+**Budgets, and why each number:**
+
+* `hash`: 2000 million. 1.8 times what it takes, so a small change to the
+  fast code does not fail it, and 3.2 times below what `proved_hash` takes, so
+  `hash` running the proved code (6325) fails it. The fast code is some 840
+  instructions a byte in a debug build (above), 880 million for 1 MiB.
+* `proved_hash` and `sha1_digest`: 9000 million each. 1.4 times what they take
+  (6325, 6133), and well under what the single-bit `rotr` costs. Measured
+  (review of #66): in a scratch copy of arith, `word32_rotr_inline` split the
+  word into halves, called arith's single-bit `rotr` (n steps of one bit, the
+  specification) and packed the result back; published into a scratch package
+  repository with this sha256 and the unchanged test, built as `run.sh` builds
+  it (debug, native), the counts were `hash` 1097 million (unchanged),
+  `proved_hash` 40747 million (6.4 times its count) and `sha1_digest` 24569
+  million (4.0 times), and the test printed `over budget` and exited 1. Both
+  9000 budgets catch it (40747 and 24569 are over 9000).
+
+A count is the same on every run of the same binary, so there is no margin for
+load; the margins are for the code and for the valgrind and libc versions. A
+change that moves a count past its budget moves the budget in the same pull
+request, with its reason here. The test names `timeout` 900 for `run.sh`
+(valgrind runs the hashes much slower than the machine); that limit is a hang
+guard of `run.sh`, not a budget.
