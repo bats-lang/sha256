@@ -555,10 +555,15 @@ million.
   `hash` running the proved code (6325) fails it. The fast code is some 840
   instructions a byte in a debug build (above), 880 million for 1 MiB.
 * `proved_hash` and `sha1_digest`: 9000 million each. 1.4 times what they take
-  (6325, 6133), and well under what the single-bit `rotr` costs: 3.4 times
-  more by the earlier timings (9.4 s against 2.8 s, 4.8 s against 1.4 s), so
-  about 21000 million, which fails. A rotation at a time is 16384 blocks times
-  a million operations, at least 16000 million for the rotations alone.
+  (6325, 6133), and well under what the single-bit `rotr` costs. Measured
+  (review of #66): in a scratch copy of arith, `word32_rotr_inline` split the
+  word into halves, called arith's single-bit `rotr` (n steps of one bit, the
+  specification) and packed the result back; published into a scratch package
+  repository with this sha256 and the unchanged test, built as `run.sh` builds
+  it (debug, native), the counts were `hash` 1097 million (unchanged),
+  `proved_hash` 40747 million (6.4 times its count) and `sha1_digest` 24569
+  million (4.0 times), and the test printed `over budget` and exited 1. Both
+  9000 budgets catch it (40747 and 24569 are over 9000).
 
 A count is the same on every run of the same binary, so there is no margin for
 load; the margins are for the code and for the valgrind and libc versions. A
