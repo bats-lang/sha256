@@ -569,5 +569,5 @@ A count is the same on every run of the same binary, so there is no margin for
 load; the margins are for the code and for the valgrind and libc versions. A
 change that moves a count past its budget moves the budget in the same pull
 request, with its reason here. The test names `timeout` 900 for `run.sh`
-(valgrind runs the three hashes some 50 times slower than the machine, about
-2.5 minutes in all); that limit is a hang guard of `run.sh`, not a budget.
+(valgrind runs the hashes much slower than the machine); that limit is a hang
+guard of `run.sh`, not a budget.

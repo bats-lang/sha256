@@ -1,5 +1,7 @@
 #include "share/atspre_staload.hats"
 #use array as A
+#use env as E
+#use result as R
 #use sha256 as SHA
 
 (* Instructions of hashing 1 MiB (perf-instructions, sha256#65, sha256#29,
@@ -17,16 +19,22 @@ $UNSAFE begin
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static const char *perf_self = "";
-static int perf_argc = 0;
-static char *perf_argv1 = "";
-__attribute__((constructor)) static void perf_capture (int argc, char **argv) {
-  perf_argc = argc;
-  if (argc > 0) perf_self = argv[0];
-  if (argc > 1) perf_argv1 = argv[1];
+static char perf_args[4096];
+static int perf_args_len = 0;
+/* the arguments env's args_read gave, NUL-terminated strings back to back
+   (argv[0] first), kept for perf_self and perf_mode */
+static void perf_set_args (const char *args, int length) {
+  if (length > (int)sizeof perf_args - 1) length = (int)sizeof perf_args - 1;
+  memcpy(perf_args, args, (size_t)length);
+  perf_args[length] = 0;
+  perf_args_len = length;
 }
+static const char *perf_self (void) { return perf_args; }
 /* the mode this process was started with: 0 is the parent, 1 to 3 a child */
-static int perf_mode (void) { return perf_argc > 1 ? atoi(perf_argv1) : 0; }
+static int perf_mode (void) {
+  size_t first = strlen(perf_args) + 1;
+  return (int)first < perf_args_len ? atoi(perf_args + first) : 0;
+}
 /* run this binary as a child of the mode under callgrind; its collected
    instructions in millions, or -1 when valgrind does not give a count */
 static int perf_millions (int mode) {
@@ -36,7 +44,7 @@ static int perf_millions (int mode) {
   FILE *pipe;
   snprintf(command, sizeof command,
     "valgrind --tool=callgrind --callgrind-out-file=perf-callgrind.out '%s' %d 2>&1",
-    perf_self, mode);
+    perf_self(), mode);
   pipe = popen(command, "r");
   if (pipe == NULL) return -1;
   while (fgets(line, sizeof line, pipe) != NULL) {
@@ -48,12 +56,14 @@ static int perf_millions (int mode) {
   return collected < 0 ? -1 : (int)(collected / 1000000);
 }
 static void perf_report (const char *name, int millions) {
-  fprintf(stderr, "%s: %d million instructions\n", name, millions);
+  if (millions < 0) fprintf(stderr, "%s: no instruction count collected\n", name);
+  else fprintf(stderr, "%s: %d million instructions\n", name, millions);
 }
 static void perf_fail (void) { exit(1); }
 static int perf_over (int millions, int budget) { return millions < 0 || millions > budget; }
 %}
 
+extern fun perf_set_args {l:agz}{n:pos} (args: !$A.arr(byte, l, n), length: int): void = "mac#"
 extern fun perf_mode (): int = "mac#"
 extern fun perf_millions (mode: int): int = "mac#"
 extern fun perf_report (name: string, millions: int): void = "mac#"
@@ -100,6 +110,11 @@ fn child_sha1 (): void = let
 in end
 
 implement main0 () = let
+  val args = $A.alloc<byte>(4096)
+  val () = case+ $E.args_read(args, 4096) of
+    | ~$R.some(length) => perf_set_args(args, length)
+    | ~$R.none() => ()
+  val () = $A.free<byte>(args)
   val mode = perf_mode()
 in
   if mode = 1 then child_fast()
