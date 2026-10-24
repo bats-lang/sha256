@@ -120,8 +120,9 @@ is ROTR (32 - n), so `ROTR(27, ...)` and `ROTR(2, ...)`:
 `sha1-rotation-by-five-right`), `SHA1_ROUNDS`, `SHA1_BLOCK`, `sha1_f`,
 `sha1_round`, `sha1_compress` (a chaining value of 20 bytes, `FIVE_AT`).
 
-**The SHA-256 round constants are proved against the cube-root definition
-(sha256#31, piece #75); SHA1_K is tested, not proved (piece #76).** `SHA256_K` is
+**The round constants are proved against their definitions: SHA-256's against
+the cube roots (sha256#31, piece #75), SHA-1's against the square roots (piece
+#76).** `SHA256_K` is
 the standard's table (the first 32 bits of the fractional parts of the cube
 roots of the first 64 primes) and `SHA1_K` the four constants (the integer
 parts of 2 to the 30 times the square roots of 2, 3, 5 and 10), each stated
@@ -164,8 +165,31 @@ the avenue: the package's tests already generate theirs with it
 (`make-expected.py`, `scripts/gen-fast-compress.py`). The guards also state
 `high < 65536` and `low < 65536`, so the statement is for halves in range and
 a word out of range does not type-check either. Not proved: that p is the
-(t+1)-th prime (sha256#78), and the SHA-1 constants (square roots, #76) and the
-initial value (#77).
+(t+1)-th prime (sha256#78) and the initial value (#77).
+
+**SHA1_K (piece #76).** Each constructor `SHA1_K_0_to_19`, `_20_to_39`,
+`_40_to_59` and `_60_to_79` is `{t,high,low:nat | <its range of t>; high <
+65536; low < 65536; sqrt_fraction_le(high, low, n); sqrt_fraction_gt(high,
+low, n)}` with n the literal 2, 3, 5 and 10: `sqrt_fraction_le` and
+`sqrt_fraction_gt` say that x = 65536 * high + low has `x^2 <= n * 2^60 < (x +
+1)^2`, that is x = floor(sqrt(n) * 2^30), the definition of FIPS 180-4, section
+4.2.1 (integers of 2^64, held by the gmp solver as above). The word is free in
+the constructor's type, as SHA256_K's is, so `SHA1_K(t, high, low)` at a word
+that is not the definition's does not type-check. The type of `sha1_k` and
+`sha1_k_w32` is unchanged in shape:
+both lookups still return `SHA1_K(t, high, low)` for halves under 65536, and
+`sha1_k` stays, deprecated, and `tests/dynamic/rounds` still calls it.
+`tests/static/accept/sha1-k-used` builds the four constructors at the
+definition's word, and `tests/static/reject/sha1-k-<range>-one-over` and
+`-one-under` (ranges `0-to-19`, `20-to-39`, `40-to-59`, `60-to-79`: 8
+fixtures, all committed) claim a word one bit too high (`sqrt_fraction_le`
+fails) and one too low (`sqrt_fraction_gt` fails), each with an exact `expect`.
+The same generator, `tests/static/make-sha256-k-fixtures.py`, writes them from
+the definition alone (`floor(sqrt(n) * 2^30)` as an integer square root of n *
+2^60, no copied table), so its `--check` in `tests/static/run.sh` covers the
+138 fixtures of both. The design is #75's, whose research (HACL* and VST state
+their tables as literals, none proves them against the definition) applies
+unchanged. Not proved: nothing of SHA1_K remains owed.
 `tests/dynamic/rounds` prints every constant and compares them with integer
 cube and square roots computed in Python from the definitions
 (`make-test.py`), not copied from the standard.
@@ -360,10 +384,9 @@ against `ROTR`; the single-bit `rotr` takes 31 steps).
 chaining add, the padding and the length, the fold over the blocks, the digest
 and its hex digits, the incremental contexts of both hashes, each against the
 FIPS 180-4 definitions, in terms of arith's relations on 16-bit halves. Tested
-only: the SHA-1 constants and the initial values (`SHA1_K`, `SHA256_IV`,
-`SHA1_IV` are the standard's tables stated once; `SHA256_K` is proved against
-the cube-root definition, sha256#75; the rest is sha256#31's pieces #76 to
-#78), the copy glue above, and the fast `hash`/`init`/`update`/`finish` (not
+only: the initial values (`SHA256_IV`, `SHA1_IV` are the standard's tables stated
+once; `SHA256_K` and `SHA1_K` are proved against their definitions, sha256#75
+and #76; the rest is sha256#31's pieces #77 and #78), the copy glue above, and the fast `hash`/`init`/`update`/`finish` (not
 proved at all). Trusted, where it lives: array's `barr` primitives (`barr_get`,
 `barr_set`, ...: array's CLAUDE.md), arith's C operators and the equivalence of its
 halves-based functions to 32-bit arithmetic wherever arith states it (`and_proved`,

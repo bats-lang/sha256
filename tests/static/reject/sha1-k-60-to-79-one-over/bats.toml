@@ -1,0 +1,8 @@
+[package]
+name = "sha1-k-60-to-79-one-over"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

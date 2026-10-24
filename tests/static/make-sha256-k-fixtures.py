@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the static fixtures of the SHA256_K proof (sha256#75, piece of #31).
+"""Writes the static fixtures of the SHA256_K and SHA1_K proofs (sha256#75 and #76, pieces of #31).
 
 SHA256_K_t(t, high, low) states the definition (FIPS 180-4, section 4.2.2) as
 its guard: x = i * 2^32 + 65536 * high + low has x^3 <= p * 2^96 < (x + 1)^3,
@@ -79,6 +79,29 @@ def words():
     return out
 
 
+def isqrt(n):
+    """floor of the square root of n, by integers"""
+    lo, hi = 0, 1
+    while hi * hi <= n:
+        hi *= 2
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if mid * mid <= n:
+            lo = mid
+        else:
+            hi = mid
+    return lo
+
+
+# SHA1_K constructors: (name, a t in its range, n); K = floor(sqrt(n) * 2^30)
+SHA1_RANGES = (("0-to-19", 0, 2), ("20-to-39", 20, 3), ("40-to-59", 40, 5), ("60-to-79", 60, 10))
+
+
+def sha1_words():
+    """(name, t, n, x): x = floor(sqrt(n) * 2^30), from the definition"""
+    return [(name, t, n, isqrt(n << 60)) for name, t, n in SHA1_RANGES]
+
+
 def halves(x, i):
     low_32 = x - (i << 32)
     assert 0 <= low_32 < (1 << 32)
@@ -97,6 +120,39 @@ def accept():
         text += "prfn claim_%d (): %s\n" % (t, claim(t, high, low))
     text += "\nimplement main0 () = ()\n"
     return {"sha256-k-used": text}
+
+
+def sha1_claim(name, t, x):
+    return "$SHA.SHA1_K(%d, 0x%04x, 0x%04x) = $SHA.SHA1_K_%s()" % (t, x >> 16, x & 0xffff, name.replace("-", "_"))
+
+
+def sha1_accept():
+    text = PRELUDE
+    text += "(* every constant of SHA-1 as the square-root definition gives it: all 4 constructors are accepted (sha256#31) *)\n"
+    for name, t, n, x in sha1_words():
+        text += "prfn claim_%s (): %s\n" % (name.replace("-", "_"), sha1_claim(name, t, x))
+    text += "\nimplement main0 () = ()\n"
+    return {"sha1-k-used": text}
+
+
+def sha1_reject():
+    out = {}
+    for name, t, n, x in sha1_words():
+        for direction, shift in (("over", 1), ("under", -1)):
+            fixture = "sha1-k-%s-one-%s" % (name, direction)
+            if direction == "over":
+                guard, what = "sqrt_fraction_le", "x^2 <= n * 2^60"
+            else:
+                guard, what = "sqrt_fraction_gt", "n * 2^60 < (x + 1)^2"
+            source = PRELUDE
+            source += "(* K_%d one %s: %s fails, with x = floor(sqrt(n) * 2^30) (sha256#31) *)\n" % (t, direction, what)
+            source += "prfn claim (): %s\n\nimplement main0 () = ()\n" % sha1_claim(name, t, x + shift)
+            expect = "function claim\nline 7\n"
+            expect += ("unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(%s); S2EVar(13991->S2Eintinf(%d)), "
+                       "S2EVar(13992->S2Eintinf(%d)), S2Eintinf(%d)))\n"
+                       % (guard, (x + shift) >> 16, (x + shift) & 0xffff, n))
+            out[fixture] = (source, expect)
+    return out
 
 
 def reject():
@@ -123,10 +179,10 @@ def reject():
 def files():
     """path (under tests/static) -> text"""
     out = {}
-    for name, text in accept().items():
+    for name, text in list(accept().items()) + list(sha1_accept().items()):
         out["accept/%s/bats.toml" % name] = TOML % name
         out["accept/%s/src/bin/%s.bats" % (name, name)] = text
-    for name, (source, expect) in reject().items():
+    for name, (source, expect) in list(reject().items()) + list(sha1_reject().items()):
         out["reject/%s/bats.toml" % name] = TOML % name
         out["reject/%s/expect" % name] = expect
         out["reject/%s/src/bin/%s.bats" % (name, name)] = source
@@ -136,7 +192,7 @@ def files():
 def present():
     """every file under the directories this owns: accept/sha256-k-used and reject/sha256-k-*"""
     out = set()
-    for kind, prefix in (("accept", "sha256-k-used"), ("reject", "sha256-k-")):
+    for kind, prefix in (("accept", "sha256-k-used"), ("accept", "sha1-k-used"), ("reject", "sha256-k-"), ("reject", "sha1-k-")):
         base = os.path.join(HERE, kind)
         for name in os.listdir(base):
             if name.startswith(prefix):
@@ -161,7 +217,7 @@ def main():
             for path in extra:
                 print("not written by the generator: tests/static/" + path)
             sys.exit(1)
-        print("ok: %d files, 1 accept and %d reject fixtures" % (len(want), len(reject())))
+        print("ok: %d files, 2 accept and %d reject fixtures" % (len(want), len(reject()) + len(sha1_reject())))
         return
     for path, text in want.items():
         full = os.path.join(HERE, path)
