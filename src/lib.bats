@@ -1524,19 +1524,29 @@ implement sha1_f {t}{bh,bl,ch,cl,dh,dl} (t, bh, bl, ch, cl, dh, dl) =
     val (pf | @(fh, fl)) = word_parity(bh, bl, ch, cl, dh, dl)
   in (SHA1_F_parity_second(pf) | @(fh, fl)) end
 
+(* sqrt_fraction_le/gt (high, low, n): with x = 65536 * high + low,
+   x^2 <= n * 2^60 < (x + 1)^2, that is x = floor(sqrt(n) * 2^30): the integer
+   part of 2 to the 30 times the square root of n (FIPS 180-4, section 4.2.1).
+   Integers of 2^64, held by the gmp solver (arith's CLAUDE.md, the
+   infinite-precision solver); keyword: round-constants (sha256#31). *)
+#pub stadef sqrt_fraction_le (high:int, low:int, n:int) =
+  (65536*high + low) * (65536*high + low) <= n * 1152921504606846976
+
+#pub stadef sqrt_fraction_gt (high:int, low:int, n:int) =
+  n * 1152921504606846976 < (65536*high + low + 1) * (65536*high + low + 1)
+
 (* SHA1_K(t, high, low): the constant K_t of SHA-1 (section 4.2.1) is the word
-   high:low: 5a827999 for t from 0 to 19, 6ed9eba1 from 20 to 39, 8f1bbcdc from
-   40 to 59 and ca62c1d6 from 60 to 79. The standard defines them as the
-   first 30 bits of the square roots of 2, 3, 5 and 10 times 2 to the 30 (the
-   integer part of 2 to the 30 times the root). Like SHA-256's they are stated
-   and tested only through the digests that depend on them
-   (tests/dynamic/sha1 and proved), not proved against the definition (the
-   proof needs integers of 2 to the 61 and more); owed (sha256 issue 31). *)
+   high:low: the integer part of 2 to the 30 times the square root of 2 for t
+   from 0 to 19, of 3 from 20 to 39, of 5 from 40 to 59 and of 10 from 60 to
+   79 (5a827999, 6ed9eba1, 8f1bbcdc, ca62c1d6). Each constructor states that
+   definition as its guard (n is a literal; the word is free, as SHA256_K's),
+   so a word that is not floor(sqrt(n) * 2^30) does not type-check
+   (tests/static/reject, the sha1-k fixtures). Keyword: round-constants. *)
 #pub dataprop SHA1_K(int, int, int) =
-  | {t:nat | 0 <= t; t <= 19} SHA1_K_0_to_19(t, 0x5a82, 0x7999)
-  | {t:nat | 20 <= t; t <= 39} SHA1_K_20_to_39(t, 0x6ed9, 0xeba1)
-  | {t:nat | 40 <= t; t <= 59} SHA1_K_40_to_59(t, 0x8f1b, 0xbcdc)
-  | {t:nat | 60 <= t; t <= 79} SHA1_K_60_to_79(t, 0xca62, 0xc1d6)
+  | {t,high,low:nat | 0 <= t; t <= 19; high < 65536; low < 65536; sqrt_fraction_le(high, low, 2); sqrt_fraction_gt(high, low, 2)} SHA1_K_0_to_19(t, high, low)
+  | {t,high,low:nat | 20 <= t; t <= 39; high < 65536; low < 65536; sqrt_fraction_le(high, low, 3); sqrt_fraction_gt(high, low, 3)} SHA1_K_20_to_39(t, high, low)
+  | {t,high,low:nat | 40 <= t; t <= 59; high < 65536; low < 65536; sqrt_fraction_le(high, low, 5); sqrt_fraction_gt(high, low, 5)} SHA1_K_40_to_59(t, high, low)
+  | {t,high,low:nat | 60 <= t; t <= 79; high < 65536; low < 65536; sqrt_fraction_le(high, low, 10); sqrt_fraction_gt(high, low, 10)} SHA1_K_60_to_79(t, high, low)
 
 (* The constant of round t, with the proof that it is the table's *)
 #pub fun sha1_k_w32 {t:nat | t < 80} (t: int t)
