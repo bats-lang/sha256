@@ -120,17 +120,52 @@ is ROTR (32 - n), so `ROTR(27, ...)` and `ROTR(2, ...)`:
 `sha1-rotation-by-five-right`), `SHA1_ROUNDS`, `SHA1_BLOCK`, `sha1_f`,
 `sha1_round`, `sha1_compress` (a chaining value of 20 bytes, `FIVE_AT`).
 
-**Tested, not proved: the round constants.** `SHA256_K` is the standard's table
-(the first 32 bits of the fractional parts of the cube roots of the first 64
-primes) and `SHA1_K` the four constants (the integer parts of 2 to the 30 times
-the square roots of 2, 3, 5 and 10), each stated once in a dataprop whose
-constructors the lookups (`sha256_k`, `sha1_k`) return, so the compiler checks
-the rounds use the table's word for round t and nothing else, and that
-the lookup returns the word the table states. That each word is what the
-definition says is not proved: it needs integers of 2 to the 100 (2 to the 61
-for SHA-1), and the solver is 32-bit. A proof is owed (sha256 issue, p2: a
-relation on 16-bit limbs, `x^3 <= p * 2^96 < (x + 1)^3` for a multi-limb x, or
-a bounded integer-root relation); until then they are said to be tested:
+**The SHA-256 round constants are proved against the cube-root definition
+(sha256#31, piece #75); SHA1_K is tested, not proved (piece #76).** `SHA256_K` is
+the standard's table (the first 32 bits of the fractional parts of the cube
+roots of the first 64 primes) and `SHA1_K` the four constants (the integer
+parts of 2 to the 30 times the square roots of 2, 3, 5 and 10), each stated
+once in a dataprop whose constructors the lookups (`sha256_k`, `sha1_k`)
+return, so the compiler checks the rounds use the table's word for round t and
+nothing else, and that the lookup returns the word the table states.
+
+Each constructor `SHA256_K_t(t, high, low)` carries the definition as its
+guard: `cube_fraction_le(i, high, low, p)` and `cube_fraction_gt(i, high, low,
+p)` say that x = i * 2^32 + 65536 * high + low has `x^3 <= p * 2^96 < (x +
+1)^3`, with p the literal prime and i the integer part of its root, so
+`SHA256_K_t` at a word that is not floor(cbrt(p) * 2^32) mod 2^32 does not
+type-check. No limb arithmetic is needed: the gmp build of the solver
+(infinite precision; arith's CLAUDE.md, "The proofs are checked by the
+infinite-precision solver") takes the integers of 2^105 as literals and
+multiplies them. The int build would not be a check at all (#594). No type of
+a published constructor or function changes (each guard holds at its
+constructor's own indices, and `sha256_k`, `sha256_k_w32` stay and are called
+by the rounds and the digests), so this is not a breaking change.
+Research: HACL* (`specs/Spec.SHA2.Constants.fst`) states `k224_256` as a
+literal list of 64 words, checked only for its length; Appel's VST
+(`sha/SHA256.v`) states `K256` as 64 hard-coded constants with the comment
+"hardcoding the constants, first 32 bits of the fractional parts of the cube
+roots of the first 64 prime numbers". Neither proves the table against the
+definition; this does.
+`tests/static/accept/sha256-k-used` builds all 64 constructors at the word the
+definition gives. `tests/static/reject/sha256-k-<t>-one-over` and
+`sha256-k-<t>-one-under` (t = 0 to 63: 128 fixtures) claim word t one bit too
+high (`cube_fraction_le` fails) and one too low (`cube_fraction_gt` fails),
+each with an exact `expect` (function `claim`, line 7, the unsolved
+constraint with the prime, the integer part and the halves claimed), so a
+guard of any word weakened in either clause is caught. patsopt reports one
+unsolved constraint for a function, so a fixture holds one word and one
+direction. All 129 fixtures are written by
+`tests/static/make-sha256-k-fixtures.py` from the definition alone (the first
+64 primes and integer cube roots of p * 2^96, no table copied), and
+`tests/static/run.sh` runs its `--check`, which fails when a committed fixture
+differs from what the generator writes or one is missing or extra. Python is
+the avenue: the package's tests already generate theirs with it
+(`make-expected.py`, `scripts/gen-fast-compress.py`). The guards also state
+`high < 65536` and `low < 65536`, so the statement is for halves in range and
+a word out of range does not type-check either. Not proved: that p is the
+(t+1)-th prime (sha256#78), and the SHA-1 constants (square roots, #76) and the
+initial value (#77).
 `tests/dynamic/rounds` prints every constant and compares them with integer
 cube and square roots computed in Python from the definitions
 (`make-test.py`), not copied from the standard.
@@ -325,10 +360,10 @@ against `ROTR`; the single-bit `rotr` takes 31 steps).
 chaining add, the padding and the length, the fold over the blocks, the digest
 and its hex digits, the incremental contexts of both hashes, each against the
 FIPS 180-4 definitions, in terms of arith's relations on 16-bit halves. Tested
-only: the round constants and the initial values (`SHA256_K`, `SHA1_K`,
-`SHA256_IV`, `SHA1_IV` are the standard's tables stated once; that each word is
-what the definition says needs integers of 2^100 and the solver is 32-bit: issue
-#31), the copy glue above, and the fast `hash`/`init`/`update`/`finish` (not
+only: the SHA-1 constants and the initial values (`SHA1_K`, `SHA256_IV`,
+`SHA1_IV` are the standard's tables stated once; `SHA256_K` is proved against
+the cube-root definition, sha256#75; the rest is sha256#31's pieces #76 to
+#78), the copy glue above, and the fast `hash`/`init`/`update`/`finish` (not
 proved at all). Trusted, where it lives: array's `barr` primitives (`barr_get`,
 `barr_set`, ...: array's CLAUDE.md), arith's C operators and the equivalence of its
 halves-based functions to 32-bit arithmetic wherever arith states it (`and_proved`,
