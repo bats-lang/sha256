@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the static fixtures of the SHA256_K and SHA1_K proofs (sha256#75 and #76, pieces of #31).
+"""Writes the static fixtures of the SHA256_K, SHA1_K and SHA256_IV proofs (sha256#75, #76 and #77, pieces of #31).
 
 SHA256_K_t(t, high, low) states the definition (FIPS 180-4, section 4.2.2) as
 its guard: x = i * 2^32 + 65536 * high + low has x^3 <= p * 2^96 < (x + 1)^3,
@@ -15,6 +15,17 @@ for t in 0 to 63: 128 reject fixtures, each with the exact `expect`
 (function, line, patsopt's error) that tests/static/expect.py demands.
 patsopt stops at the first unsolved constraint of a function, so a fixture
 holds one word and one direction.
+
+SHA256_IV_mk states the definition (section 5.3.3) for each of the eight words
+as its guard: word j, with p the (j+1)-th prime and i the integer part of its
+square root, is x = i * 2^32 + 65536 * high + low with x^2 <= p * 2^64 <
+(x + 1)^2. This writes, again from the definition alone:
+
+  accept/sha256-iv-used                the constructor at the definition's eight words
+  reject/sha256-iv-<j>-one-over        word j one bit too high (sqrt_fraction32_le fails)
+  reject/sha256-iv-<j>-one-under       word j one bit too low (sqrt_fraction32_gt fails)
+
+for j in 0 to 7: 16 reject fixtures.
 
   tests/static/make-sha256-k-fixtures.py          rewrite the fixtures
   tests/static/make-sha256-k-fixtures.py --check  fail when the committed
@@ -102,6 +113,15 @@ def sha1_words():
     return [(name, t, n, isqrt(n << 60)) for name, t, n in SHA1_RANGES]
 
 
+def iv_words():
+    """(j, p, i, x): x = floor(sqrt(p) * 2^32) for the first eight primes, i its integer part"""
+    out = []
+    for j, p in enumerate(primes(8)):
+        x = isqrt(p << 64)
+        out.append((j, p, x >> 32, x))
+    return out
+
+
 def halves(x, i):
     low_32 = x - (i << 32)
     assert 0 <= low_32 < (1 << 32)
@@ -155,6 +175,45 @@ def sha1_reject():
     return out
 
 
+def iv_claim(values):
+    """values: the eight x"""
+    ws = ["$SHA.w32(0x%04x, 0x%04x)" % halves(x, x >> 32) for x in values]
+    return ("$SHA.SHA256_IV($SHA.eight(%s,\n  %s)) =\n  $SHA.SHA256_IV_mk()"
+            % (", ".join(ws[:4]), ", ".join(ws[4:])))
+
+
+def iv_accept():
+    text = PRELUDE
+    text += "(* the initial value as the square-root definition gives it: the constructor is accepted (sha256#77) *)\n"
+    text += "prfn claim (): %s\n\nimplement main0 () = ()\n" % iv_claim([x for j, p, i, x in iv_words()])
+    return {"sha256-iv-used": text}
+
+
+def iv_reject():
+    out = {}
+    exact = [x for j, p, i, x in iv_words()]
+    for j, p, i, x in iv_words():
+        for direction, shift in (("over", 1), ("under", -1)):
+            name = "sha256-iv-%d-one-%s" % (j, direction)
+            values = list(exact)
+            values[j] = x + shift
+            high, low = halves(x + shift, i)
+            if direction == "over":
+                guard, what = "sqrt_fraction32_le", "x^2 <= p * 2^64"
+            else:
+                guard, what = "sqrt_fraction32_gt", "p * 2^64 < (x + 1)^2"
+            source = PRELUDE
+            source += "(* H(0)_%d one %s: %s fails, with x = floor(sqrt(p) * 2^32) (sha256#77) *)\n" % (j, direction, what)
+            source += "prfn claim (): %s\n\nimplement main0 () = ()\n" % iv_claim(values)
+            # the constructor is on line 9; patsopt numbers the two halves' variables 14022 + 2j and 14023 + 2j
+            expect = "function claim\nline 9\n"
+            expect += ("unsolved constraint: C3NSTRprop(C3TKmain(); S2Eapp(S2Ecst(%s); S2Eintinf(%d), "
+                       "S2EVar(%d->S2Eintinf(%d)), S2EVar(%d->S2Eintinf(%d)), S2Eintinf(%d)))\n"
+                       % (guard, i, 14022 + 2 * j, high, 14023 + 2 * j, low, p))
+            out[name] = (source, expect)
+    return out
+
+
 def reject():
     out = {}
     for t, p, i, x in words():
@@ -179,10 +238,10 @@ def reject():
 def files():
     """path (under tests/static) -> text"""
     out = {}
-    for name, text in list(accept().items()) + list(sha1_accept().items()):
+    for name, text in list(accept().items()) + list(sha1_accept().items()) + list(iv_accept().items()):
         out["accept/%s/bats.toml" % name] = TOML % name
         out["accept/%s/src/bin/%s.bats" % (name, name)] = text
-    for name, (source, expect) in list(reject().items()) + list(sha1_reject().items()):
+    for name, (source, expect) in list(reject().items()) + list(sha1_reject().items()) + list(iv_reject().items()):
         out["reject/%s/bats.toml" % name] = TOML % name
         out["reject/%s/expect" % name] = expect
         out["reject/%s/src/bin/%s.bats" % (name, name)] = source
@@ -192,7 +251,7 @@ def files():
 def present():
     """every file under the directories this owns: accept/sha256-k-used and reject/sha256-k-*"""
     out = set()
-    for kind, prefix in (("accept", "sha256-k-used"), ("accept", "sha1-k-used"), ("reject", "sha256-k-"), ("reject", "sha1-k-")):
+    for kind, prefix in (("accept", "sha256-k-used"), ("accept", "sha1-k-used"), ("accept", "sha256-iv-used"), ("reject", "sha256-k-"), ("reject", "sha1-k-"), ("reject", "sha256-iv-")):
         base = os.path.join(HERE, kind)
         for name in os.listdir(base):
             if name.startswith(prefix):
@@ -217,7 +276,7 @@ def main():
             for path in extra:
                 print("not written by the generator: tests/static/" + path)
             sys.exit(1)
-        print("ok: %d files, 2 accept and %d reject fixtures" % (len(want), len(reject()) + len(sha1_reject())))
+        print("ok: %d files, 3 accept and %d reject fixtures" % (len(want), len(reject()) + len(sha1_reject()) + len(iv_reject())))
         return
     for path, text in want.items():
         full = os.path.join(HERE, path)

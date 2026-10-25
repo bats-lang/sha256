@@ -13,7 +13,7 @@
 set -eu
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PYTHONDONTWRITEBYTECODE=1 python3 -I "$ROOT/tests/static/expect_test.py"
-# the 138 sha256-k and sha1-k fixtures are written by a generator (sha256#75, #76): fail when they differ
+# the 154 sha256-k, sha1-k and sha256-iv fixtures are written by a generator (sha256#75, #76, #77): fail when they differ
 PYTHONDONTWRITEBYTECODE=1 python3 -I "$ROOT/tests/static/make-sha256-k-fixtures.py" --check
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT

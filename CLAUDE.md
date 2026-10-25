@@ -165,7 +165,7 @@ the avenue: the package's tests already generate theirs with it
 (`make-expected.py`, `scripts/gen-fast-compress.py`). The guards also state
 `high < 65536` and `low < 65536`, so the statement is for halves in range and
 a word out of range does not type-check either. Not proved: that p is the
-(t+1)-th prime (sha256#78) and the initial value (#77).
+(t+1)-th prime (sha256#78).
 
 **SHA1_K (piece #76).** Each constructor `SHA1_K_0_to_19`, `_20_to_39`,
 `_40_to_59` and `_60_to_79` is `{t,high,low:nat | <its range of t>; high <
@@ -187,7 +187,7 @@ fails) and one too low (`sqrt_fraction_gt` fails), each with an exact `expect`.
 The same generator, `tests/static/make-sha256-k-fixtures.py`, writes them from
 the definition alone (`floor(sqrt(n) * 2^30)` as an integer square root of n *
 2^60, no copied table), so its `--check` in `tests/static/run.sh` covers the
-138 fixtures of both. The design is #75's, whose research (HACL* and VST state
+138 fixtures of both (sha256#77 adds the 16 of `SHA256_IV`, above). The design is #75's, whose research (HACL* and VST state
 their tables as literals, none proves them against the definition) applies
 unchanged. Not proved: nothing of SHA1_K remains owed.
 `tests/dynamic/rounds` prints every constant and compares them with integer
@@ -254,10 +254,31 @@ compressed (stage C's `SHA256_BLOCK(cells, 0, chaining, chaining_after)`).
 `DIGEST256(message, chaining)` is `PAD` of the message and `HASHED256` of the
 padded message (the very `padded`), so a digest of a message is the hash of
 the padded message and of nothing else; `HASHED1` and `DIGEST1` are SHA-1's.
-`SHA256_IV` is the standard's table, stated and tested (`tests/dynamic/
-initial_value` derives it by integer square roots), not proved against its
-definition, as the round constants (sha256 issue 31); SHA-1's five words are
-the standard's own.
+`SHA256_IV` is proved against its definition (FIPS 180-4, section 5.3.3, sha256#31
+piece #77), as the round constants are (above): the constructor `SHA256_IV_mk` is
+`{h0_high,h0_low,...,h7_high,h7_low:nat | every half < 65536; sqrt_fraction32_le(i,
+h_high, h_low, p); sqrt_fraction32_gt(i, h_high, h_low, p) for each word}` with p the
+literal prime (2, 3, 5, 7, 11, 13, 17, 19) and i the literal integer part of its
+square root (1, 1, 2, 2, 3, 3, 4, 4), and the type `SHA256_IV(eight(w32(h0_high,
+h0_low), ...))`. `sqrt_fraction32_le` and `sqrt_fraction32_gt` say that x = i * 2^32
++ 65536 * high + low has `x^2 <= p * 2^64 < (x + 1)^2`, that is x = floor(sqrt(p) *
+2^32), so the word is the first 32 bits of the fractional part (integers of 2^67,
+held by the gmp solver as for SHA256_K; the int build would not be a check, #594).
+The word is free in the constructor's type, so `SHA256_IV` at a word that is not the
+definition's does not type-check. No published type changes: `sha256_iv_w32` and
+the deprecated `sha256_iv` keep their types and each is called (`tests/dynamic/
+initial_value`, `initial_value_w32`), because each guard holds at the constructor's
+own indices; this is not a breaking change. `tests/static/accept/sha256-iv-used`
+builds the constructor at the eight words the definition gives, and
+`tests/static/reject/sha256-iv-<j>-one-over` and `-one-under` (j = 0 to 7: 16
+fixtures) claim word j one bit too high (`sqrt_fraction32_le` fails) and one too low
+(`sqrt_fraction32_gt` fails), each with an exact `expect`;
+`tests/static/make-sha256-k-fixtures.py` writes them from the definition alone (the
+first eight primes and integer square roots of p * 2^64, no table copied) and its
+`--check` covers them with the K fixtures. `reject/iv-of-another-word` (word 0 low
+half 0xe668) is the hand-written case. Not proved: that p is the (j+1)-th prime
+(sha256#78). SHA-1's five words are the standard's own, constants with no
+definition to prove.
 
 **The incremental API** (`ctx256(message)`, linear and indexed by the message
 fed so far): `init256_proved` (the empty message), `update256_proved(context,
@@ -384,9 +405,9 @@ against `ROTR`; the single-bit `rotr` takes 31 steps).
 chaining add, the padding and the length, the fold over the blocks, the digest
 and its hex digits, the incremental contexts of both hashes, each against the
 FIPS 180-4 definitions, in terms of arith's relations on 16-bit halves. Tested
-only: the initial values (`SHA256_IV`, `SHA1_IV` are the standard's tables stated
-once; `SHA256_K` and `SHA1_K` are proved against their definitions, sha256#75
-and #76; the rest is sha256#31's pieces #77 and #78), the copy glue above, and the fast `hash`/`init`/`update`/`finish` (not
+only: the initial value of SHA-1 (`SHA1_IV` is the standard's table stated
+once; `SHA256_K`, `SHA1_K` and `SHA256_IV` are proved against their definitions, sha256#75,
+#76 and #77; the rest is sha256#31's piece #78), the copy glue above, and the fast `hash`/`init`/`update`/`finish` (not
 proved at all). Trusted, where it lives: array's `barr` primitives (`barr_get`,
 `barr_set`, ...: array's CLAUDE.md), arith's C operators and the equivalence of its
 halves-based functions to 32-bit arithmetic wherever arith states it (`and_proved`,
