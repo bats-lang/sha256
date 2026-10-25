@@ -1991,13 +1991,30 @@ in (held2, PAD_mk(counted, ZCOUNT_long(), lengths, snoc128, more, written) | blo
    The hash of a sequence of whole blocks, and the digest
    ============================================================ *)
 
+(* sqrt_fraction32_le/gt (i, high, low, p): with x = i * 2^32 + 65536 * high +
+   low, x^2 <= p * 2^64 < (x + 1)^2, that is x = floor(sqrt(p) * 2^32): i is
+   the integer part of the square root of p and high:low the first 32 bits of
+   its fractional part (FIPS 180-4, section 5.3.3). Integers of 2^67, held by
+   the gmp solver (arith's CLAUDE.md, the infinite-precision solver);
+   keyword: round-constants (sha256#31, #77). *)
+#pub stadef sqrt_fraction32_le (i:int, high:int, low:int, p:int) =
+  (i*4294967296 + 65536*high + low) * (i*4294967296 + 65536*high + low) <= p * 18446744073709551616
+
+#pub stadef sqrt_fraction32_gt (i:int, high:int, low:int, p:int) =
+  p * 18446744073709551616 < (i*4294967296 + 65536*high + low + 1) * (i*4294967296 + 65536*high + low + 1)
+
 (* SHA256_IV(chaining): the initial hash value H(0) of SHA-256 (FIPS 180-4, section
    5.3.3): the first 32 bits of the fractional parts of the square roots of
-   the first eight primes. Stated, and tested against the definition, not
-   proved (needs integers of 2 to the 64: sha256 issue 31) *)
+   the first eight primes. The constructor states that definition as its guard
+   for word j (the prime p and the integer part i of its root are literals:
+   2, 3, 5, 7, 11, 13, 17, 19 with 1, 1, 2, 2, 3, 3, 4, 4), so a word that is
+   not floor(sqrt(p) * 2^32) mod 2^32 does not type-check (tests/static/reject,
+   the sha256-iv fixtures). That the primes are the first eight is not proved:
+   sha256#78. Keyword: round-constants. *)
 #pub dataprop SHA256_IV(eight_words) =
-  | SHA256_IV_mk(eight(w32(0x6a09, 0xe667), w32(0xbb67, 0xae85), w32(0x3c6e, 0xf372), w32(0xa54f, 0xf53a),
-                       w32(0x510e, 0x527f), w32(0x9b05, 0x688c), w32(0x1f83, 0xd9ab), w32(0x5be0, 0xcd19)))
+  | {h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536;
+     sqrt_fraction32_le(1, h0_high, h0_low, 2); sqrt_fraction32_gt(1, h0_high, h0_low, 2); sqrt_fraction32_le(1, h1_high, h1_low, 3); sqrt_fraction32_gt(1, h1_high, h1_low, 3); sqrt_fraction32_le(2, h2_high, h2_low, 5); sqrt_fraction32_gt(2, h2_high, h2_low, 5); sqrt_fraction32_le(2, h3_high, h3_low, 7); sqrt_fraction32_gt(2, h3_high, h3_low, 7); sqrt_fraction32_le(3, h4_high, h4_low, 11); sqrt_fraction32_gt(3, h4_high, h4_low, 11); sqrt_fraction32_le(3, h5_high, h5_low, 13); sqrt_fraction32_gt(3, h5_high, h5_low, 13); sqrt_fraction32_le(4, h6_high, h6_low, 17); sqrt_fraction32_gt(4, h6_high, h6_low, 17); sqrt_fraction32_le(4, h7_high, h7_low, 19); sqrt_fraction32_gt(4, h7_high, h7_low, 19)}
+    SHA256_IV_mk(eight(w32(h0_high, h0_low), w32(h1_high, h1_low), w32(h2_high, h2_low), w32(h3_high, h3_low), w32(h4_high, h4_low), w32(h5_high, h5_low), w32(h6_high, h6_low), w32(h7_high, h7_low)))
 
 (* SHA1_IV(chaining): the initial hash value H(0) of SHA-1 (section 5.3.1), five
    constants the standard gives as they are *)
