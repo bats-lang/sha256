@@ -45,7 +45,7 @@ fun constants {t:nat | t <= 64} .<64 - t>. (t: int t): void =
 
 implement main0 () = let
   val () = constants(0)
-  val (_, _, _, _, _, _, _, _, _ | @(n0, n1, n2, n3, n4, n5, n6, n7)) = $SHA.sha256_iv_nth_w32()
+  val (_, _ | @(n0, n1, n2, n3, n4, n5, n6, n7)) = $SHA.sha256_iv_nth_w32()
   val (_ | @(o0, o1, o2, o3, o4, o5, o6, o7)) = $SHA.sha256_iv_w32()
   val () = print("iv ")
   val () = (word(n0); print_char(' '); word(n1); print_char(' '); word(n2); print_char(' '); word(n3); print_char(' '))

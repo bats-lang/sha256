@@ -1,5 +1,5 @@
 [package]
-name = "k-of-prime-wrong-round"
+name = "k-primed-wrong-round"
 kind = "bin"
 
 [dependencies]

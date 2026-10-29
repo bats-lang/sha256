@@ -23,8 +23,8 @@ fn k_of_round_five (): void = let
 in end
 
 fn initial_value (): void = let
-  val (iv, p0, p1, p2, p3, p4, p5, p6, p7 | words) = $SHA.sha256_iv_nth_w32()
-  prval _ = (iv, p0, p1, p2, p3, p4, p5, p6, p7)
+  val (iv, primed | words) = $SHA.sha256_iv_nth_w32()
+  prval _ = (iv, primed)
   val _ = words
 in end
 

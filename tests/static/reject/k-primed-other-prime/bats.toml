@@ -1,5 +1,5 @@
 [package]
-name = "k-of-prime-other-prime"
+name = "k-primed-other-prime"
 kind = "bin"
 
 [dependencies]

@@ -1,5 +1,5 @@
 [package]
-name = "iv-of-prime-other-prime"
+name = "iv-primed-other-prime"
 kind = "bin"
 
 [dependencies]
