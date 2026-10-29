@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Writes the proofs that the primes in the constants' guards are the first
 64 primes (sha256#78, keyword: nth-prime): for each t, the private proof
-`_nth_prime_<t>` of NTH_PRIME(t, p_t), and the bodies of `sha256_k_prime` and
-`sha256_iv_primes` (src/lib.bats).
+`_nth_prime_<t>` of NTH_PRIME(t, p_t), the constructors of SHA256_K_PRIMED and
+SHA256_IV_PRIMED, and the bodies of `sha256_k_nth_w32` and `sha256_iv_nth_w32`
+(src/lib.bats).
 
   scripts/gen-primes.py          rewrite the generated region of src/lib.bats
   scripts/gen-primes.py --check  fail when the region is not what this writes

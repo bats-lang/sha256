@@ -831,7 +831,7 @@ in (FIVE_AT_mk(stored0, stored1, stored2, stored3, stored4) | cells) end
    guard (the prime p and the integer part i of its root are literals), so a
    word that is not floor(cbrt(p) * 2^32) mod 2^32 does not type-check
    (tests/static/reject, the sha256-k fixtures). That p is the (t+1)-th prime is
-   proved beside it, by `sha256_k_prime` (sha256#78, keyword: nth-prime). Keyword:
+   proved beside it, by `sha256_k_nth_w32` (sha256#78, keyword: nth-prime). Keyword:
    round-constants. *)
 #pub dataprop SHA256_K(int, int, int) =
   | {high,low:nat | high < 65536; low < 65536; cube_fraction_le(1, high, low, 2); cube_fraction_gt(1, high, low, 2)} SHA256_K_0(0, high, low)
@@ -2011,7 +2011,7 @@ in (held2, PAD_mk(counted, ZCOUNT_long(), lengths, snoc128, more, written) | blo
    2, 3, 5, 7, 11, 13, 17, 19 with 1, 1, 2, 2, 3, 3, 4, 4), so a word that is
    not floor(sqrt(p) * 2^32) mod 2^32 does not type-check (tests/static/reject,
    the sha256-iv fixtures). That the primes are the first eight is proved beside
-   it, by `sha256_iv_primes` (sha256#78, keyword: nth-prime). Keyword:
+   it, by `sha256_iv_nth_w32` (sha256#78, keyword: nth-prime). Keyword:
    round-constants. *)
 #pub dataprop SHA256_IV(eight_words) =
   | {h0_high,h0_low,h1_high,h1_low,h2_high,h2_low,h3_high,h3_low,h4_high,h4_low,h5_high,h5_low,h6_high,h6_low,h7_high,h7_low:nat | h0_high < 65536; h0_low < 65536; h1_high < 65536; h1_low < 65536; h2_high < 65536; h2_low < 65536; h3_high < 65536; h3_low < 65536; h4_high < 65536; h4_low < 65536; h5_high < 65536; h5_low < 65536; h6_high < 65536; h6_low < 65536; h7_high < 65536; h7_low < 65536;
