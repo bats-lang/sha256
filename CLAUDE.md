@@ -633,22 +633,25 @@ package's tests and its `gen-fast-compress.py` already generate theirs with it, 
 has no generator to build on. A relation is a specification, so there is nothing to run for it; no
 `praxi`, no `assume`, no `$UNSAFE`, no runtime check.
 
-**How the primes reach the constants.** `SHA256_K_OF_PRIME(t, p, high, low)` is the guard of `SHA256_K`
-with the prime named and `NTH_PRIME(t, p)` held; `SHA256_IV_OF_PRIME(j, p, high, low)` the same for the
-square-root words of H(0). `sha256_k_nth_w32(t)` and `sha256_iv_nth_w32()` are beside `sha256_k_w32` and
-`sha256_iv_w32` (additive: no published type or constructor changed, so nothing is deprecated and no
-removal ticket is filed): they give the very proof of the table (`SHA256_K(t, high, low)`,
-`SHA256_IV(...)`) and, at the same indices, the proof that the word is the root word of the (t+1)-th
-prime, with the word. Why a lookup and not a lemma over every `SHA256_K` proof: the guards of `SHA256_K` are
-cubes of variables, and the solver, given a cube of the constructor's own variables, cannot carry it to a goal
-about the function's (tried: `case+ k of SHA256_K_0() => ...` leaves `cube_fraction_le(1, high, low, 2)`
-unsolved, while the linear guard `high < 65536` carries), and it proves a cube only of literals; here every
-index is a literal and the compiler checks both proofs for it. What ties the p of `SHA256_K_t` to the p here
-is the word: a cube root word determines its prime (the interval of p with x^3 <= p * 2^96 < (x+1)^3 holds
-at most one integer, as 3x^2 + 3x + 1 < 2^96 for x < 7 * 2^32), a remark that is argued here and not proved by
-the compiler. `tests/dynamic/nth_prime` prints the 64 constants and H(0) from the new lookups and checks them
-against the published ones and against `expected` (`make-expected.py`, from the definition, primes by trial
-division).
+**How the primes reach the constants.** `SHA256_K_PRIMED(t, p, high, low)` is `SHA256_K` again, constructor for
+constructor (`SHA256_K_PRIMED_<t>`), with the same guard (the prime p and the integer part of its cube root as
+literals) and, as an argument, the proof `NTH_PRIME(t, p)` of that very p, which is an index of the new proof; so
+one proof carries both facts, that the word is floor(cbrt(p) * 2^32) mod 2^32 and that p is the (t+1)-th prime.
+`SHA256_IV_PRIMED` is the same for `SHA256_IV_mk`, holding `NTH_PRIME(0, 2)` to `NTH_PRIME(7, 19)`. The two are
+written by `scripts/gen-primes.py` from the old constructors of `src/lib.bats`, and its `--check` fails when an old
+constructor is not the definition's (so the guard copied is the table's). `sha256_k_nth_w32(t)` and
+`sha256_iv_nth_w32()` are beside `sha256_k_w32` and `sha256_iv_w32` (additive: no published type or constructor
+changed, so nothing is deprecated and no removal ticket is filed; `tests/dynamic/nth_prime` calls both): they
+return the proof of the table and the primed proof at the same indices, with the word.
+
+Routes tried for the tie between the published `SHA256_K_t` and the new proof, recorded: (1) a lemma over every
+`SHA256_K` proof giving `SHA256_K_PRIMED`: `case+ k of SHA256_K_0() => ...` leaves `cube_fraction_le(1, high, low,
+2)` unsolved, since the guard is a cube of the constructor's variables and the solver proves a cube only of
+literals (a linear guard such as `high < 65536` does carry); naming the constructor's variables in the pattern
+(`SHA256_K_0{h,l}()`) makes the pattern itself demand the guard. (2) A lemma that a cube-root word determines its
+prime (`cube_fraction_le/gt` at one `i,h,l` for `p1` and `p2` gives `p1 == p2`, with `i <= 6`): the solver leaves
+`p1 == p2` unsolved (non-linear), so it is not provable here. (3) The family above, which is the route taken: the
+primed proof is the table, not derived from the old proof.
 
 **Rejected** (`tests/static/reject`, each with its exact `expect`; `accept/nth-prime-used` is the control):
 a composite given a `PRIME` by a remainder of 0 (`nth-prime-composite-is-prime`), by a remainder not below the
@@ -659,7 +662,7 @@ factorisation for it (`nth-prime-skips-a-prime`), with a wrong product (`nth-pri
 with no numbers listed (`nth-prime-gap-without-factorisations`); a prime repeated (`nth-prime-repeats-a-prime`);
 the first prime as 3 (`nth-prime-first-is-three`); a factor of 1 (`nth-prime-composite-by-one`); a composite
 listed past the end (`nth-prime-nonprimes-past-the-end`); and a constant or an initial word given another
-prime or another round (`k-of-prime-other-prime`, `k-of-prime-wrong-round`, `iv-of-prime-other-prime`).
+prime or another round (`k-primed-other-prime`, `k-primed-wrong-round`, `iv-primed-other-prime`).
 
 **Mutation check** (the method of gestures' and array's CLAUDE.md, quire's `mutation_check.py`, the gmp solver as
 `--ats-home`): the `prfn`s of the section, `_nth_prime_<t>`, are the statements it mutates (the index t plus one, the
