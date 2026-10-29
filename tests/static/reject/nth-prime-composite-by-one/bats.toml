@@ -1,0 +1,8 @@
+[package]
+name = "nth-prime-composite-by-one"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

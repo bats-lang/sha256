@@ -1,0 +1,8 @@
+[package]
+name = "nth-prime-remainder-not-below-divisor"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

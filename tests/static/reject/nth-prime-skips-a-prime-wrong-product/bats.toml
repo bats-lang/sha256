@@ -1,0 +1,8 @@
+[package]
+name = "nth-prime-skips-a-prime-wrong-product"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

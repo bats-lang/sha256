@@ -1,0 +1,8 @@
+[package]
+name = "k-primed-other-prime"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

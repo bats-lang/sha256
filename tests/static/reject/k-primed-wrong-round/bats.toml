@@ -1,0 +1,8 @@
+[package]
+name = "k-primed-wrong-round"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""
