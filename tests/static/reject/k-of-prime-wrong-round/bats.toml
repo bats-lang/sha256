@@ -1,0 +1,8 @@
+[package]
+name = "k-of-prime-wrong-round"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

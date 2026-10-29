@@ -1,0 +1,8 @@
+[package]
+name = "nth-prime-nonprimes-past-the-end"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

@@ -1,0 +1,8 @@
+[package]
+name = "nth-prime-composite-root-too-small"
+kind = "bin"
+
+[dependencies]
+"arith" = ""
+"array" = ""
+"sha256" = ""

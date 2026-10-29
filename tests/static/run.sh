@@ -15,6 +15,8 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PYTHONDONTWRITEBYTECODE=1 python3 -I "$ROOT/tests/static/expect_test.py"
 # the 155 sha256-k, sha1-k and sha256-iv fixtures are written by a generator (sha256#75, #76, #77): fail when they differ
 PYTHONDONTWRITEBYTECODE=1 python3 -I "$ROOT/tests/static/make-sha256-k-fixtures.py" --check
+# the proofs that the primes of the constants are the first 64 and the first 8 are written by a generator (sha256#78): fail when src/lib.bats differs
+PYTHONDONTWRITEBYTECODE=1 python3 -I "$ROOT/scripts/gen-primes.py" --check
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 cp -R "$1" "$TMP/repo"

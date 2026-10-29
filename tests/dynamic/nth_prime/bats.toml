@@ -1,0 +1,8 @@
+[package]
+name = "nth_prime"
+kind = "bin"
+
+[dependencies]
+"array" = ""
+"arith" = ""
+"sha256" = ""
